@@ -14,9 +14,17 @@ const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
 
 const MIN_STOP_SECONDS = 120;
 const LOGRECORD_LIMIT_PER_DEVICE = 3000;
+const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 
 function fmtTime(d) {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
+function deviceState(status, now) {
+  if (!status) return "offline";
+  const age = now - new Date(status.dateTime);
+  if (age > OFFLINE_THRESHOLD_MS) return "offline";
+  return status.isDriving ? "moving" : "stopped";
 }
 
 module.exports = async (req, res) => {
@@ -32,6 +40,10 @@ module.exports = async (req, res) => {
       typeName: "Device",
       search: { fromDate: now.toISOString() }
     });
+
+    const statuses = await geotabCall("Get", { typeName: "DeviceStatusInfo" });
+    const statusByDevice = {};
+    statuses.forEach(s => { statusByDevice[s.device.id] = s; });
 
     const results = await Promise.all(devices.map(async device => {
       // Whole per-device pipeline wrapped in try/catch: if ANYTHING fails
@@ -94,6 +106,7 @@ module.exports = async (req, res) => {
         return {
           id: device.id,
           name: device.name,
+          state: deviceState(statusByDevice[device.id], now),
           stopCount: stopsWithLocation.length,
           totalStopSeconds: stopsWithLocation.reduce((sum, s) => sum + s.durationSeconds, 0),
           stops: stopsWithLocation
@@ -103,6 +116,7 @@ module.exports = async (req, res) => {
         return {
           id: device.id,
           name: device.name,
+          state: deviceState(statusByDevice[device.id], now),
           stopCount: 0,
           totalStopSeconds: 0,
           stops: []

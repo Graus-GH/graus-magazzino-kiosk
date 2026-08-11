@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>GRAUS Fleet — Performance &amp; Squadra</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=3" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/performance.css?v=1" />
+</head>
+<body>
+
+  <div id="kiosk">
+
+    <header class="k-header">
+      <div class="k-brand">
+        <img class="k-brand-mark" src="https://firebasestorage.googleapis.com/v0/b/graus-website.firebasestorage.app/o/uploads%2F1783928606742-1CaXk68QPYFnSibPMj4fOxvLB0sejKVUL_1_.webp?alt=media" alt="GRAUS">
+        <span class="k-brand-sub">Performance &amp; Squadra</span>
+        <a href="/kiosk-a7f3d9/" class="k-nav-link">← Mappa</a>
+        <a href="/kiosk-a7f3d9/soste.html" class="k-nav-link">Analisi soste →</a>
+      </div>
+      <div class="k-header-right">
+        <div class="k-live">
+          <span class="k-live-dot"></span>
+          <span id="k-clock">--:--:--</span>
+        </div>
+        <div class="k-refresh-info">
+          <span id="k-updated">Aggiornamento in corso…</span>
+          <span class="k-countdown-sep">·</span>
+          <span id="k-countdown">--</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="p-main">
+
+      <div class="p-top-row">
+        <div class="k-panel p-goal">
+          <h2 class="k-panel-title">Obiettivo del mese — squadra</h2>
+          <p class="k-panel-sub" id="p-goal-sub">Caricamento…</p>
+          <div class="p-goal-bar-track">
+            <div class="p-goal-bar-fill" id="p-goal-bar" style="width:0%"></div>
+          </div>
+          <span class="p-goal-pct" id="p-goal-pct">0%</span>
+        </div>
+
+        <div class="k-panel p-month-km">
+          <span class="p-big-number" id="p-month-km">–</span>
+          <span class="k-kpi-label">Km percorsi questo mese</span>
+        </div>
+      </div>
+
+      <div class="p-mid-row">
+        <div class="k-panel p-trend">
+          <h2 class="k-panel-title">Andamento settimanale</h2>
+          <p class="k-panel-sub">Km percorsi dalla flotta, ultimi 7 giorni</p>
+          <div id="p-trend-chart" class="p-trend-bars"></div>
+        </div>
+
+        <div class="k-panel p-idling">
+          <h2 class="k-panel-title">Tempo motore acceso da fermo</h2>
+          <p class="k-panel-sub">Oggi, per veicolo — meno è meglio</p>
+          <div id="p-idling-list" class="k-list k-list--scroll"></div>
+        </div>
+      </div>
+
+      <div class="p-tip" id="p-tip">
+        <span class="p-tip-icon">💡</span>
+        <span id="p-tip-text">Caricamento consiglio del giorno…</span>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script src="/kiosk-a7f3d9/performance.js?v=1"></script>
+</body>
+</html>

@@ -76,6 +76,12 @@ di protezione, da valutare più avanti:
 
 Per ora, in fase di test, va bene così.
 
+## Variabili d'ambiente opzionali
+
+| Nome | Descrizione | Default |
+|---|---|---|
+| `TEAM_MONTHLY_KM_GOAL` | Obiettivo km mensile mostrato nella dashboard Performance | 5000 |
+
 ## Personalizzazione futura
 
 - **Soglia soste brevi**: attualmente ignoro le soste sotto i 2 minuti

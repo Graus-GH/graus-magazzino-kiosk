@@ -4,6 +4,7 @@
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // heavier endpoint — refresh less often
 const HOME_ZONE_MATCH = "graus"; // case-insensitive substring match on zone name
+const LONG_STOP_SECONDS = 30 * 60; // flag stops at 30+ min away from base — adjust freely
 
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 
@@ -36,6 +37,10 @@ function startClock() {
   setInterval(tick, 1000);
 }
 
+function statusLabel(state) {
+  return state === "moving" ? "In movimento" : state === "stopped" ? "Fermo" : "Offline";
+}
+
 function locationHtml(s) {
   const isHome = s.zoneName && s.zoneName.toLowerCase().includes(HOME_ZONE_MATCH);
 
@@ -65,17 +70,27 @@ function renderVehicles(vehicles) {
         <span class="s-vehicle-name">${v.name}</span>
         <span class="s-vehicle-total">${fmtDuration(v.totalStopSeconds)}</span>
       </div>
-      <div class="s-vehicle-sub">${v.stopCount} sost${v.stopCount === 1 ? "a" : "e"} oggi</div>
+      <div class="s-vehicle-sub">
+        <span class="k-spotlight-status k-spotlight-status--${v.state}">${statusLabel(v.state)}</span>
+        <span>${v.stopCount} sost${v.stopCount === 1 ? "a" : "e"} oggi</span>
+      </div>
       <div class="s-stop-list">
-        ${v.stops.length ? v.stops.map(s => `
-          <div class="s-stop ${s.ongoing ? "s-stop--ongoing" : ""}">
-            <div class="s-stop-top">
-              <span class="s-stop-time">${s.startLabel} → ${s.endLabel}</span>
-              <span class="s-stop-duration">${fmtDuration(s.durationSeconds)}</span>
+        ${v.stops.length ? v.stops.map(s => {
+          const isHome = s.zoneName && s.zoneName.toLowerCase().includes(HOME_ZONE_MATCH);
+          const isLong = !isHome && s.durationSeconds >= LONG_STOP_SECONDS;
+          return `
+            <div class="s-stop ${s.ongoing ? "s-stop--ongoing" : ""} ${isLong ? "s-stop--long" : ""}">
+              <div class="s-stop-top">
+                <span class="s-stop-time">${s.startLabel} → ${s.endLabel}</span>
+                <span>
+                  <span class="s-stop-duration">${fmtDuration(s.durationSeconds)}</span>
+                  ${isLong ? '<span class="s-stop-flag">Sosta lunga</span>' : ""}
+                </span>
+              </div>
+              <div class="s-stop-location">${locationHtml(s)}</div>
             </div>
-            <div class="s-stop-location">${locationHtml(s)}</div>
-          </div>
-        `).join("") : '<p class="k-empty">Nessuna sosta rilevata oggi.</p>'}
+          `;
+        }).join("") : '<p class="k-empty">Nessuna sosta rilevata oggi.</p>'}
       </div>
     </div>
   `).join("");
