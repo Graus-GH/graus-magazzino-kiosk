@@ -68,6 +68,16 @@ html, body {
   color: var(--text-muted);
 }
 
+.k-nav-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--graus-blue);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
 .k-live {
   display: flex;
   align-items: center;
