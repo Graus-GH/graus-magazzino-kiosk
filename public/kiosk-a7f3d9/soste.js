@@ -3,6 +3,9 @@
  */
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // heavier endpoint — refresh less often
+const CHART_HOURS = Array.from({ length: 15 }, (_, i) => i + 6); // 06:00–20:00
+
+let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 
 function fmtClock(d) {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -15,11 +18,70 @@ function fmtDuration(seconds) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function fmtCountdown(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
 function startClock() {
   const el = document.getElementById("k-clock");
-  const tick = () => { el.textContent = fmtClock(new Date()); };
+  const countdownEl = document.getElementById("k-countdown");
+  const tick = () => {
+    el.textContent = fmtClock(new Date());
+    countdownEl.textContent = "Prossimo aggiornamento tra " + fmtCountdown(nextRefreshAt - Date.now());
+  };
   tick();
   setInterval(tick, 1000);
+}
+
+function renderLeaderboard(vehicles) {
+  const container = document.getElementById("s-leaderboard");
+  const ranked = vehicles
+    .slice()
+    .sort((a, b) => (a.totalStopSeconds || 0) - (b.totalStopSeconds || 0))
+    .slice(0, 5);
+
+  if (!ranked.length) {
+    container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
+    return;
+  }
+
+  container.innerHTML = ranked.map((v, i) => `
+    <div class="k-row ${i === 0 ? "k-row--rank1" : ""}">
+      <span class="k-row-rank">${i + 1}</span>
+      <span class="k-row-name">${v.name}</span>
+      <span class="k-row-value">${fmtDuration(v.totalStopSeconds || 0)}</span>
+    </div>
+  `).join("");
+}
+
+function renderChart(vehicles) {
+  const counts = {};
+  CHART_HOURS.forEach(h => { counts[h] = 0; });
+
+  vehicles.forEach(v => {
+    v.stops.forEach(s => {
+      const hour = new Date(s.start).getHours();
+      if (counts[hour] !== undefined) counts[hour] += 1;
+    });
+  });
+
+  const maxCount = Math.max(1, ...Object.values(counts));
+  const container = document.getElementById("s-chart");
+
+  container.innerHTML = CHART_HOURS.map(h => {
+    const count = counts[h];
+    const heightPct = Math.round((count / maxCount) * 100);
+    return `
+      <div class="s-chart-col">
+        <span class="s-chart-count">${count || ""}</span>
+        <div class="s-chart-bar" style="height:${heightPct}%"></div>
+        <span class="s-chart-hour">${String(h).padStart(2, "0")}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderVehicles(vehicles) {
@@ -62,7 +124,11 @@ async function refresh() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
+    renderLeaderboard(data.vehicles);
+    renderChart(data.vehicles);
     renderVehicles(data.vehicles);
+
+    nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
     document.getElementById("k-updated").textContent =
       "Aggiornato alle " + fmtClock(new Date());
   } catch (err) {
