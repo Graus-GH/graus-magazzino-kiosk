@@ -14,8 +14,8 @@ let markersLayer;
 
 function initMap() {
   map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    maxZoom: 19,
     className: "k-tiles"
   }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
