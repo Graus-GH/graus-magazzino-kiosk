@@ -221,6 +221,7 @@ html, body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 
 .k-spotlight-column .k-spotlight {
@@ -360,7 +361,8 @@ html, body {
 }
 
 .k-spotlight-map {
-  height: 320px;
+  width: 100%;
+  height: 100%;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -370,17 +372,20 @@ html, body {
 .k-spotlight-map-wrap {
   position: relative;
   flex-shrink: 0;
+  height: 320px;
   margin-bottom: 14px;
+  transition: width 0.25s ease, height 0.25s ease;
 }
 
-.k-spotlight-map--expanded {
-  position: fixed;
-  top: 4%;
-  left: 4%;
-  width: 92%;
-  height: 92%;
-  z-index: 2000;
+.k-spotlight-map-wrap--expanded {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 920px;
+  height: 520px;
+  z-index: 1000;
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.65);
+  border-radius: 10px;
 }
 
 .k-map-expand-btn {
@@ -423,6 +428,13 @@ html, body {
 .k-spotlight-status--moving { background: rgba(52,211,153,0.18); color: var(--good); }
 .k-spotlight-status--stopped { background: rgba(251,191,36,0.18); color: var(--warn); }
 .k-spotlight-status--offline { background: rgba(100,116,139,0.25); color: var(--offline); }
+
+.k-spotlight-location {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 10px 0 12px 0;
+}
 
 .k-spotlight-stats {
   display: grid;
@@ -543,6 +555,7 @@ html, body {
   gap: 7px;
   white-space: nowrap;
   transform: translate(-8px, -12px);
+  cursor: pointer;
 }
 
 .k-marker-rotate {

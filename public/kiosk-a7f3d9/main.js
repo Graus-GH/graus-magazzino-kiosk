@@ -100,9 +100,9 @@ function initSpotlightMap() {
   });
 
   document.getElementById("k-spotlight-expand").addEventListener("click", () => {
-    const el = document.getElementById("k-spotlight-map");
-    el.classList.toggle("k-spotlight-map--expanded");
-    setTimeout(() => spotlightMap.invalidateSize(), 250);
+    const wrap = document.querySelector(".k-spotlight-map-wrap");
+    wrap.classList.toggle("k-spotlight-map-wrap--expanded");
+    setTimeout(() => spotlightMap.invalidateSize(), 260);
   });
 }
 
@@ -210,6 +210,7 @@ function renderMap(vehicles) {
     const marker = L.marker([v.latitude, v.longitude], {
       icon: buildMarkerIcon(v, v.id === activeVehicleId)
     }).addTo(map);
+    marker.on("click", () => selectVehicleManually(v.id));
     markersByDevice[v.id] = marker;
   });
 
@@ -219,10 +220,11 @@ function renderMap(vehicles) {
   // the camera).
   if (withPosition.length) {
     const bounds = L.latLngBounds(withPosition.map(v => [v.latitude, v.longitude]));
-    map.fitBounds(bounds.pad(0.08));
+    map.fitBounds(bounds.pad(0.08), { animate: false });
   }
 
   declutterLabels();
+  setTimeout(declutterLabels, 100); // safety net once layout/fonts fully settle
 }
 
 function rosterIconHtml(v) {
@@ -247,8 +249,9 @@ function renderRoster(vehicles) {
 
   container.innerHTML = sorted.map(v => {
     const label = v.state === "moving" ? "In movimento"
-                : v.state === "stopped" ? `Fermo da ${fmtDuration((v.stopDurationMs || 0) / 1000)}`
-                : "Offline";
+                : v.state === "stopped"
+                  ? `Fermo da ${fmtDuration((v.stopDurationMs || 0) / 1000)}${v.location ? " · " + v.location : ""}`
+                  : "Offline";
     const isActive = v.id === activeVehicleId;
     const clickable = v.latitude && v.longitude;
     return `
@@ -277,9 +280,14 @@ function renderSpotlight(vehicle) {
     ? new Date(vehicle.lastUpdate).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
     : "–";
 
+  const locationLine = (vehicle.state === "stopped" && vehicle.location)
+    ? `<div class="k-spotlight-location">📍 ${vehicle.location}</div>`
+    : "";
+
   body.innerHTML = `
     <div class="k-spotlight-name">${vehicle.name}</div>
     <span class="k-spotlight-status k-spotlight-status--${vehicle.state}">${statusLabel}</span>
+    ${locationLine}
     <div class="k-spotlight-stats">
       <div>
         <span class="k-spotlight-stat-value">${Math.round(vehicle.speed || 0)}</span>
@@ -342,6 +350,7 @@ function renderSpotlight(vehicle) {
     if (v) marker.setIcon(buildMarkerIcon(v, id === String(vehicle.id)));
   });
   renderRoster(currentVehicles);
+  declutterLabels();
 }
 
 function advanceSpotlight() {

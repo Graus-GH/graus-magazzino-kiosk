@@ -11,6 +11,8 @@ const { geotabCall } = require("../lib/geotabClient");
 const { computeStops } = require("../lib/stopDetection");
 const { startOfDayRome } = require("../lib/timezone");
 const { cleanName } = require("../lib/cleanName");
+const { matchZone } = require("../lib/zoneMatcher");
+const { reverseGeocode, resetRequestBudget } = require("../lib/geocoder");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -18,6 +20,7 @@ const LOGRECORD_LIMIT_PER_DEVICE = 3000;
 
 module.exports = async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
+  resetRequestBudget();
 
   try {
     const now = new Date();
@@ -58,7 +61,7 @@ module.exports = async (req, res) => {
       }
     }));
 
-    const vehicles = devices.map(device => {
+    const vehicles = await Promise.all(devices.map(async device => {
       const status = statusByDevice[device.id];
 
       let state = "offline";
@@ -75,6 +78,18 @@ module.exports = async (req, res) => {
 
       const currentStop = stops.find(s => s.ongoing) || null;
 
+      // Where a stopped vehicle actually is: a known client Zone if it
+      // matches one, otherwise a reverse-geocoded street address.
+      let location = null;
+      if (state === "stopped" && status) {
+        try {
+          location = await matchZone(status.latitude, status.longitude);
+          if (!location) location = await reverseGeocode(status.latitude, status.longitude);
+        } catch (err) {
+          console.error("Location lookup failed for device", device.name, err.message);
+        }
+      }
+
       return {
         id: device.id,
         name: cleanName(device.name),
@@ -84,12 +99,13 @@ module.exports = async (req, res) => {
         bearing: status ? status.bearing : null,
         lastUpdate: status ? status.dateTime : null,
         state,
+        location,
         stopDurationMs: currentStop ? currentStop.durationSeconds * 1000 : null,
         todayStopSeconds: Math.round(todayStopSeconds),
         todayStopCount: stops.length,
         todayDistanceKm: Math.round((distanceByDevice[device.id] || 0) * 10) / 10
       };
-    });
+    }));
 
     res.status(200).json({
       generatedAt: now.toISOString(),
