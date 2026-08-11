@@ -40,17 +40,8 @@ function fmtCountdown(ms) {
 
 function startClock() {
   const el = document.getElementById("k-clock");
-  const countdownEl = document.getElementById("k-countdown");
-  const tick = () => {
-    el.textContent = fmtClock(new Date());
-    if (selectedDate) {
-      countdownEl.textContent = "Visualizzazione storica — nessun aggiornamento automatico";
-    } else {
-      countdownEl.textContent = "Prossimo aggiornamento tra " + fmtCountdown(nextRefreshAt - Date.now());
-    }
-  };
-  tick();
-  setInterval(tick, 1000);
+  setInterval(() => { el.textContent = fmtClock(new Date()); }, 1000);
+  el.textContent = fmtClock(new Date());
 }
 
 function statusLabel(state) {
@@ -122,16 +113,8 @@ async function refresh() {
     if (data.error) throw new Error(data.error);
 
     renderVehicles(data.vehicles);
-
-    nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
-    document.getElementById("k-updated").textContent =
-      selectedDate
-        ? `Dati del ${new Date(selectedDate + "T12:00:00").toLocaleDateString("it-IT")}`
-        : "Aggiornato alle " + fmtClock(new Date());
   } catch (err) {
     console.error("GRAUS Fleet Kiosk (soste) — errore aggiornamento:", err);
-    document.getElementById("k-updated").textContent =
-      "Errore di aggiornamento — nuovo tentativo tra poco";
   }
 }
 

@@ -16,6 +16,7 @@ const { matchZone } = require("../lib/zoneMatcher");
 const { reverseGeocode, resetRequestBudget } = require("../lib/geocoder");
 const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
 const { startOfDayRome, startOfDateStringRome, dateKeyRome } = require("../lib/timezone");
+const { cleanName } = require("../lib/cleanName");
 
 const MIN_STOP_SECONDS = 120;
 const LOGRECORD_LIMIT_PER_DEVICE = 3000;
@@ -103,7 +104,7 @@ module.exports = async (req, res) => {
 
         return {
           id: device.id,
-          name: device.name,
+          name: cleanName(device.name),
           state: deviceState(statusByDevice[device.id], now),
           stopCount: stopsWithLocation.length,
           totalStopSeconds: stopsWithLocation.reduce((sum, s) => sum + s.durationSeconds, 0),
@@ -113,7 +114,7 @@ module.exports = async (req, res) => {
         console.error("Stops pipeline failed entirely for device", device.name, err.message);
         return {
           id: device.id,
-          name: device.name,
+          name: cleanName(device.name),
           state: deviceState(statusByDevice[device.id], now),
           stopCount: 0,
           totalStopSeconds: 0,

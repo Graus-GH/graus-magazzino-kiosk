@@ -15,6 +15,8 @@
 
 const { geotabCall } = require("../lib/geotabClient");
 const { startOfDayRome, startOfMonthRome, dateKeyRome } = require("../lib/timezone");
+const { parseDurationSeconds } = require("../lib/duration");
+const { cleanName } = require("../lib/cleanName");
 
 const SPEEDING_THRESHOLD_KMH = Number(process.env.SPEEDING_THRESHOLD_KMH) || 90;
 const LOGRECORD_LIMIT_PER_DEVICE = 3000;
@@ -62,14 +64,14 @@ module.exports = async (req, res) => {
     trips.forEach(t => {
       const id = t.device.id;
       if (!idlingByDevice[id]) idlingByDevice[id] = { today: 0, week: 0, month: 0 };
-      const dur = t.idlingDuration || 0;
+      const dur = parseDurationSeconds(t.idlingDuration);
       idlingByDevice[id].month += dur;
       if (new Date(t.start) >= startOfWeekWindow) idlingByDevice[id].week += dur;
       if (new Date(t.start) >= startOfToday) idlingByDevice[id].today += dur;
     });
 
     const idling = devices.map(d => ({
-      name: d.name,
+      name: cleanName(d.name),
       todaySeconds: Math.round((idlingByDevice[d.id] || {}).today || 0),
       weekSeconds: Math.round((idlingByDevice[d.id] || {}).week || 0),
       monthSeconds: Math.round((idlingByDevice[d.id] || {}).month || 0)
@@ -102,10 +104,10 @@ module.exports = async (req, res) => {
           }
         });
 
-        return { name: device.name, eventCount, maxSpeedKmh: Math.round(maxSpeed) };
+        return { name: cleanName(device.name), eventCount, maxSpeedKmh: Math.round(maxSpeed) };
       } catch (err) {
         console.error("Speeding check failed for device", device.name, err.message);
-        return { name: device.name, eventCount: 0, maxSpeedKmh: 0 };
+        return { name: cleanName(device.name), eventCount: 0, maxSpeedKmh: 0 };
       }
     }));
 

@@ -10,6 +10,7 @@
 const { geotabCall } = require("../lib/geotabClient");
 const { computeStops } = require("../lib/stopDetection");
 const { startOfDayRome } = require("../lib/timezone");
+const { cleanName } = require("../lib/cleanName");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -76,7 +77,7 @@ module.exports = async (req, res) => {
 
       return {
         id: device.id,
-        name: device.name,
+        name: cleanName(device.name),
         latitude: status ? status.latitude : null,
         longitude: status ? status.longitude : null,
         speed: status ? status.speed : 0,

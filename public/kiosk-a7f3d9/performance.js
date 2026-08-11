@@ -2,7 +2,7 @@
  * GRAUS Fleet Kiosk — Performance & Squadra view logic
  */
 
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 const TIP_ROTATE_MS = 30 * 1000;
 
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;

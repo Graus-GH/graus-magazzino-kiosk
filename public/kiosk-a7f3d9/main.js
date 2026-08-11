@@ -13,7 +13,7 @@ const HOME_BASE_RADIUS_M = 300; // within this distance, just say "In sede"
 
 const TILE_LAYERS = {
   voyager: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-  positron: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+  osm: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
 };
 
 // The spotlight/detail mini-map always uses standard OpenStreetMap tiles —
@@ -31,7 +31,6 @@ let currentVehicles = [];
 let spotlightIndex = 0;
 let activeVehicleId = null;
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
-
 let spotlightMap;
 let spotlightMarker;
 let spotlightTimer = null;
@@ -80,17 +79,31 @@ function declutterLabels() {
 
 function initSpotlightMap() {
   spotlightMap = L.map("k-spotlight-map", {
-    zoomControl: false,
+    zoomControl: true,
     attributionControl: true,
-    dragging: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    touchZoom: false
+    dragging: true,
+    scrollWheelZoom: true,
+    doubleClickZoom: true,
+    touchZoom: true
   }).setView(CENTER, SPOTLIGHT_ZOOM);
   L.tileLayer(SPOTLIGHT_TILE_URL, {
     maxZoom: 19,
     attribution: "© OpenStreetMap"
   }).addTo(spotlightMap);
+
+  // Manual interaction with the detail map pauses the auto-rotation too,
+  // same courtesy as clicking a vehicle in the roster.
+  spotlightMap.on("dragstart zoomstart", () => {
+    if (spotlightTimer) clearInterval(spotlightTimer);
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(startSpotlightRotation, 30 * 1000);
+  });
+
+  document.getElementById("k-spotlight-expand").addEventListener("click", () => {
+    const el = document.getElementById("k-spotlight-map");
+    el.classList.toggle("k-spotlight-map--expanded");
+    setTimeout(() => spotlightMap.invalidateSize(), 250);
+  });
 }
 
 function setTileStyle(style) {
@@ -98,7 +111,7 @@ function setTileStyle(style) {
   tileLayer = createTileLayer(style).addTo(map);
 
   document.getElementById("tile-voyager").classList.toggle("k-tile-btn--active", style === "voyager");
-  document.getElementById("tile-positron").classList.toggle("k-tile-btn--active", style === "positron");
+  document.getElementById("tile-osm").classList.toggle("k-tile-btn--active", style === "osm");
 }
 
 function fmtClock(d) {
@@ -146,13 +159,8 @@ async function fetchReturnEtaMinutes(lat, lng) {
 
 function startClock() {
   const el = document.getElementById("k-clock");
-  const countdownEl = document.getElementById("k-countdown");
-  const tick = () => {
-    el.textContent = fmtClock(new Date());
-    countdownEl.textContent = "Prossimo aggiornamento tra " + fmtCountdown(nextRefreshAt - Date.now());
-  };
-  tick();
-  setInterval(tick, 1000);
+  setInterval(() => { el.textContent = fmtClock(new Date()); }, 1000);
+  el.textContent = fmtClock(new Date());
 }
 
 function renderKpis(vehicles) {
@@ -312,9 +320,13 @@ function renderSpotlight(vehicle) {
     }
   }
 
-  // Mini-map: recenter on this vehicle, close zoom, single marker
-  if (spotlightMap && vehicle.latitude && vehicle.longitude) {
+  // Mini-map: recenter on this vehicle, close zoom, single marker —
+  // but not while the person is manually exploring it (rotation paused)
+  const isPaused = !spotlightTimer;
+  if (spotlightMap && vehicle.latitude && vehicle.longitude && !isPaused) {
     spotlightMap.setView([vehicle.latitude, vehicle.longitude], SPOTLIGHT_ZOOM);
+  }
+  if (spotlightMap && vehicle.latitude && vehicle.longitude) {
     if (spotlightMarker) spotlightMap.removeLayer(spotlightMarker);
     spotlightMarker = L.marker([vehicle.latitude, vehicle.longitude], {
       icon: buildMarkerIcon(vehicle, true)
@@ -377,19 +389,13 @@ async function refresh() {
       spotlightIndex = spotlightIndex % withPosition.length;
       renderSpotlight(withPosition[spotlightIndex]);
     }
-
-    nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
-    document.getElementById("k-updated").textContent =
-      "Aggiornato alle " + fmtClock(new Date());
   } catch (err) {
     console.error("GRAUS Fleet Kiosk — errore aggiornamento:", err);
-    document.getElementById("k-updated").textContent =
-      "Errore di aggiornamento — nuovo tentativo tra poco";
   }
 }
 
 document.getElementById("tile-voyager").addEventListener("click", () => setTileStyle("voyager"));
-document.getElementById("tile-positron").addEventListener("click", () => setTileStyle("positron"));
+document.getElementById("tile-osm").addEventListener("click", () => setTileStyle("osm"));
 
 startClock();
 initMap("voyager");
