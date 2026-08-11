@@ -39,18 +39,13 @@
     <main class="p-main">
 
       <div class="p-top-row">
-        <div class="k-panel p-goal">
-          <h2 class="k-panel-title">Obiettivo del mese — squadra</h2>
-          <p class="k-panel-sub" id="p-goal-sub">Caricamento…</p>
-          <div class="p-goal-bar-track">
-            <div class="p-goal-bar-fill" id="p-goal-bar" style="width:0%"></div>
-          </div>
-          <span class="p-goal-pct" id="p-goal-pct">0%</span>
-        </div>
-
         <div class="k-panel p-month-km">
           <span class="p-big-number" id="p-month-km">–</span>
           <span class="k-kpi-label">Km percorsi questo mese</span>
+        </div>
+        <div class="k-panel p-month-km">
+          <span class="p-big-number" id="p-week-km">–</span>
+          <span class="k-kpi-label">Km percorsi questa settimana</span>
         </div>
       </div>
 
@@ -62,9 +57,15 @@
         </div>
 
         <div class="k-panel p-idling">
-          <h2 class="k-panel-title">Tempo motore acceso da fermo</h2>
-          <p class="k-panel-sub">Oggi, per veicolo — meno è meglio</p>
+          <h2 class="k-panel-title">Motore acceso da fermo</h2>
+          <p class="k-panel-sub">Oggi · Settimana · Mese</p>
           <div id="p-idling-list" class="k-list k-list--scroll"></div>
+        </div>
+
+        <div class="k-panel p-speeding">
+          <h2 class="k-panel-title">Eccessi di velocità</h2>
+          <p class="k-panel-sub" id="p-speeding-sub">Oggi, sopra soglia</p>
+          <div id="p-speeding-list" class="k-list k-list--scroll"></div>
         </div>
       </div>
 

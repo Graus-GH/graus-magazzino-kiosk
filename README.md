@@ -80,7 +80,11 @@ Per ora, in fase di test, va bene così.
 
 | Nome | Descrizione | Default |
 |---|---|---|
-| `TEAM_MONTHLY_KM_GOAL` | Obiettivo km mensile mostrato nella dashboard Performance | 5000 |
+| `SPEEDING_THRESHOLD_KMH` | Soglia oltre la quale un punto GPS conta come "eccesso di velocità" nella dashboard Performance — è una soglia fissa, non i limiti stradali reali (vedi nota nel codice `api/performance.js`) | 90 |
+
+## Nota sul tempo di idling a zero
+
+Se la dashboard Performance mostra sempre 0 per il tempo di motore acceso da fermo, possono esserci due spiegazioni: o è davvero così (buon segno), oppure il campo `Trip.idlingDuration` non viene popolato per i vostri dispositivi — dipende dal modello di device Geotab installato e da come rileva l'accensione motore separatamente dal movimento. Se dopo qualche giorno resta sempre a zero nonostante sappiate che i mezzi restano accesi da fermi, è probabile la seconda ipotesi: fatecelo sapere e verifichiamo un metodo alternativo.
 
 ## Personalizzazione futura
 

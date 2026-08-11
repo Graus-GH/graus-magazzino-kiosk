@@ -54,13 +54,9 @@ function startTips() {
   setInterval(show, TIP_ROTATE_MS);
 }
 
-function renderGoal(monthKm, monthGoalKm) {
-  const pct = monthGoalKm > 0 ? Math.min(100, Math.round((monthKm / monthGoalKm) * 100)) : 0;
-  document.getElementById("p-goal-bar").style.width = pct + "%";
-  document.getElementById("p-goal-pct").textContent = pct + "%";
-  document.getElementById("p-goal-sub").textContent =
-    `${Math.round(monthKm)} / ${monthGoalKm} km`;
+function renderTotals(monthKm, weekKm) {
   document.getElementById("p-month-km").textContent = Math.round(monthKm);
+  document.getElementById("p-week-km").textContent = Math.round(weekKm);
 }
 
 function renderTrend(dailyKm) {
@@ -81,17 +77,33 @@ function renderTrend(dailyKm) {
   }).join("");
 }
 
-function renderIdling(idlingToday) {
+function renderIdling(idling) {
   const container = document.getElementById("p-idling-list");
-  if (!idlingToday.length) {
+  if (!idling.length) {
     container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
     return;
   }
 
-  container.innerHTML = idlingToday.map(v => `
+  container.innerHTML = idling.map(v => `
     <div class="p-idling-row">
-      <span class="p-idling-name">${v.name}</span>
-      <span class="p-idling-value">${fmtDuration(v.idlingSeconds)}</span>
+      <span class="p-row-name">${v.name}</span>
+      <span class="p-row-detail">Oggi ${fmtDuration(v.todaySeconds)} · Settimana ${fmtDuration(v.weekSeconds)} · Mese ${fmtDuration(v.monthSeconds)}</span>
+    </div>
+  `).join("");
+}
+
+function renderSpeeding(speeding, thresholdKmh) {
+  document.getElementById("p-speeding-sub").textContent = `Oggi, sopra ${thresholdKmh} km/h`;
+  const container = document.getElementById("p-speeding-list");
+  if (!speeding.length) {
+    container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
+    return;
+  }
+
+  container.innerHTML = speeding.map(v => `
+    <div class="p-speeding-row ${v.eventCount > 0 ? "p-speeding-row--flagged" : ""}">
+      <span class="p-row-name">${v.name}</span>
+      <span class="p-row-detail">${v.eventCount > 0 ? `${v.eventCount} event${v.eventCount === 1 ? "o" : "i"} · max ${v.maxSpeedKmh} km/h` : "Nessun eccesso"}</span>
     </div>
   `).join("");
 }
@@ -103,9 +115,10 @@ async function refresh() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    renderGoal(data.monthKm, data.monthGoalKm);
+    renderTotals(data.monthKm, data.weekKm);
     renderTrend(data.dailyKm);
-    renderIdling(data.idlingToday);
+    renderIdling(data.idling);
+    renderSpeeding(data.speeding, data.speedThresholdKmh);
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
     document.getElementById("k-updated").textContent =

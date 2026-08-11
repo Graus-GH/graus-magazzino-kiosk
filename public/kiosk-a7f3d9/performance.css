@@ -12,38 +12,7 @@
   display: flex;
   gap: 20px;
   flex-shrink: 0;
-  height: 160px;
-}
-
-.p-goal {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.p-goal-bar-track {
-  width: 100%;
-  height: 22px;
-  background: var(--bg-panel-raised);
-  border-radius: 11px;
-  overflow: hidden;
-  margin-top: 6px;
-}
-
-.p-goal-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--graus-blue), var(--good));
-  border-radius: 11px;
-  transition: width 0.6s ease;
-}
-
-.p-goal-pct {
-  align-self: flex-end;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--text-muted);
-  margin-top: 6px;
+  height: 140px;
 }
 
 .p-month-km {
@@ -70,7 +39,7 @@
 }
 
 .p-trend {
-  flex: 1.4;
+  flex: 1.3;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -117,32 +86,37 @@
   font-weight: 600;
 }
 
-.p-idling {
+.p-idling,
+.p-speeding {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.p-idling-row {
+.p-idling-row,
+.p-speeding-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 3px;
   padding: 10px 14px;
   border-radius: 10px;
   background: var(--bg-panel-raised);
 }
 
-.p-idling-name {
+.p-row-name {
   font-size: 14px;
   font-weight: 600;
 }
 
-.p-idling-value {
+.p-row-detail {
   font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 12px;
   color: var(--text-muted);
+}
+
+.p-speeding-row--flagged .p-row-detail {
+  color: var(--warn);
 }
 
 .p-tip {
