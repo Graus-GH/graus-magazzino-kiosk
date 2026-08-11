@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1920, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
 <title>GRAUS Fleet — Cruscotto Magazzino</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=1" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=2" />
 </head>
 <body>
 
@@ -33,6 +34,12 @@
 
       <section class="k-map-section">
         <div id="k-map"></div>
+
+        <div class="k-tile-toggle">
+          <button id="tile-voyager" class="k-tile-btn k-tile-btn--active">Voyager</button>
+          <button id="tile-positron" class="k-tile-btn">Positron</button>
+        </div>
+
         <div class="k-map-legend">
           <span class="k-legend-item"><i class="k-dot k-dot--moving"></i>In movimento</span>
           <span class="k-legend-item"><i class="k-dot k-dot--stopped"></i>Fermo</span>
@@ -56,20 +63,33 @@
             <span class="k-kpi-label">Fermi</span>
           </div>
           <div class="k-kpi">
+            <span class="k-kpi-value k-kpi-value--offline" id="kpi-offline">–</span>
+            <span class="k-kpi-label">Offline</span>
+          </div>
+          <div class="k-kpi">
             <span class="k-kpi-value" id="kpi-km">–</span>
             <span class="k-kpi-label">Km oggi</span>
           </div>
+          <div class="k-kpi">
+            <span class="k-kpi-value" id="kpi-avg-stop">–</span>
+            <span class="k-kpi-label">Sosta media</span>
+          </div>
         </div>
 
-        <div class="k-panel">
-          <h2 class="k-panel-title">Meno soste oggi</h2>
-          <p class="k-panel-sub">Veicoli più efficienti — meno tempo fermo</p>
-          <div id="k-leaderboard" class="k-list"></div>
+        <div class="k-panel k-spotlight" id="k-spotlight">
+          <h2 class="k-panel-title">In evidenza</h2>
+          <p class="k-panel-sub">Rotazione automatica ogni 15 secondi</p>
+          <div id="k-spotlight-body">
+            <p class="k-empty">Caricamento…</p>
+          </div>
         </div>
 
         <div class="k-panel k-panel--grow">
-          <h2 class="k-panel-title">Soste per veicolo</h2>
-          <div id="k-stops" class="k-list k-list--scroll"></div>
+          <h2 class="k-panel-title">Stato flotta</h2>
+          <p class="k-panel-sub">Tutti i veicoli, in tempo reale</p>
+          <div id="k-roster" class="k-list k-list--scroll">
+            <p class="k-empty">Caricamento…</p>
+          </div>
         </div>
 
       </aside>
@@ -78,10 +98,12 @@
 
     <footer class="k-footer">
       <span id="k-updated">Aggiornamento in corso…</span>
+      <span class="k-countdown-sep">·</span>
+      <span id="k-countdown">--</span>
     </footer>
 
   </div>
 
-  <script src="/kiosk-a7f3d9/main.js?v=1"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=2"></script>
 </body>
 </html>
