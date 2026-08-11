@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=1" />
-<link rel="stylesheet" href="/kiosk-a7f3d9/soste.css?v=1" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=2" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/soste.css?v=2" />
 </head>
 <body>
 
@@ -29,6 +29,21 @@
     </header>
 
     <main class="s-main">
+
+      <div class="s-top-row">
+        <div class="k-panel s-leaderboard">
+          <h2 class="k-panel-title">Meno soste oggi</h2>
+          <p class="k-panel-sub">Veicoli più efficienti — meno tempo fermo</p>
+          <div id="s-leaderboard" class="k-list"></div>
+        </div>
+
+        <div class="k-panel s-chart">
+          <h2 class="k-panel-title">Soste per fascia oraria</h2>
+          <p class="k-panel-sub">Numero di soste registrate su tutta la flotta</p>
+          <div id="s-chart" class="s-chart-bars"></div>
+        </div>
+      </div>
+
       <div id="s-vehicles" class="s-columns">
         <p class="k-empty">Caricamento…</p>
       </div>
@@ -36,10 +51,12 @@
 
     <footer class="k-footer">
       <span id="k-updated">Aggiornamento in corso…</span>
+      <span class="k-countdown-sep">·</span>
+      <span id="k-countdown">--</span>
     </footer>
 
   </div>
 
-  <script src="/kiosk-a7f3d9/soste.js?v=1"></script>
+  <script src="/kiosk-a7f3d9/soste.js?v=2"></script>
 </body>
 </html>
