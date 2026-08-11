@@ -14,6 +14,7 @@
  */
 
 const { geotabCall } = require("../lib/geotabClient");
+const { startOfDayRome, startOfMonthRome, dateKeyRome } = require("../lib/timezone");
 
 const SPEEDING_THRESHOLD_KMH = Number(process.env.SPEEDING_THRESHOLD_KMH) || 90;
 const LOGRECORD_LIMIT_PER_DEVICE = 3000;
@@ -23,12 +24,9 @@ module.exports = async (req, res) => {
 
   try {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfWeekWindow = new Date(now);
-    startOfWeekWindow.setDate(startOfWeekWindow.getDate() - 6);
-    startOfWeekWindow.setHours(0, 0, 0, 0);
+    const startOfMonth = startOfMonthRome(now);
+    const startOfToday = startOfDayRome(now);
+    const startOfWeekWindow = new Date(startOfDayRome(now).getTime() - 6 * 24 * 60 * 60 * 1000);
 
     const [devices, trips] = await Promise.all([
       geotabCall("Get", { typeName: "Device", search: { fromDate: now.toISOString() } }),
@@ -41,10 +39,7 @@ module.exports = async (req, res) => {
     const dayBuckets = {};
     const dayOrder = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      const key = d.toISOString().slice(0, 10);
+      const key = dateKeyRome(new Date(startOfToday.getTime() - i * 24 * 60 * 60 * 1000));
       dayBuckets[key] = 0;
       dayOrder.push(key);
     }
@@ -53,7 +48,7 @@ module.exports = async (req, res) => {
       const dist = t.distance || 0;
       monthKm += dist;
       if (new Date(t.start) >= startOfWeekWindow) weekKm += dist;
-      const key = new Date(t.start).toISOString().slice(0, 10);
+      const key = dateKeyRome(new Date(t.start));
       if (dayBuckets[key] !== undefined) dayBuckets[key] += dist;
     });
 

@@ -75,6 +75,17 @@ html, body {
   padding: 8px 16px;
 }
 
+.s-date-picker {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color-scheme: dark;
+}
+
 .k-live {
   display: flex;
   align-items: center;
@@ -374,6 +385,21 @@ html, body {
   padding: 10px 14px;
   border-radius: 12px;
   background: var(--bg-panel-raised);
+  border: 1px solid transparent;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.k-roster-row--active {
+  border-color: var(--graus-blue);
+  background: linear-gradient(90deg, rgba(58, 160, 255, 0.14), var(--bg-panel-raised));
+}
+
+.k-roster-icon {
+  flex-shrink: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .k-roster-name {
@@ -429,6 +455,11 @@ html, body {
   transform: translate(-8px, -12px);
 }
 
+.k-marker-rotate {
+  display: flex;
+  flex-shrink: 0;
+}
+
 .k-marker-shape {
   flex-shrink: 0;
   transition: filter 0.2s ease;
@@ -442,6 +473,12 @@ html, body {
   border-bottom: 16px solid var(--good);
   filter: drop-shadow(0 0 3px rgba(52, 211, 153, 0.7));
   transform-origin: 50% 65%;
+  animation: k-moving-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes k-moving-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.25); }
 }
 
 .k-marker-shape--stopped {
@@ -477,4 +514,12 @@ html, body {
   padding: 3px 9px;
   border-radius: 6px;
   border: 1px solid var(--border);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.k-marker--active .k-marker-name {
+  background: var(--graus-blue);
+  border-color: var(--graus-blue);
+  color: #fff;
+  font-weight: 700;
 }

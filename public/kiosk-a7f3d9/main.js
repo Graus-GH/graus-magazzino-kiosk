@@ -87,10 +87,12 @@ function statusColor(state) {
 
 function buildMarkerIcon(v, isActive) {
   const bearing = v.bearing || 0;
-  const shapeStyle = v.state === "moving" ? `style="transform:rotate(${bearing}deg);"` : "";
+  const rotateStyle = v.state === "moving" ? `style="transform:rotate(${bearing}deg);"` : "";
   const html = `
     <div class="k-marker ${isActive ? "k-marker--active" : ""}">
-      <div class="k-marker-shape k-marker-shape--${v.state}" ${shapeStyle}></div>
+      <div class="k-marker-rotate" ${rotateStyle}>
+        <div class="k-marker-shape k-marker-shape--${v.state}"></div>
+      </div>
       <span class="k-marker-name">${v.name}</span>
     </div>
   `;
@@ -120,6 +122,17 @@ function renderMap(vehicles) {
   }
 }
 
+function rosterIconHtml(v) {
+  const rotateStyle = v.state === "moving" ? `style="transform:rotate(${v.bearing || 0}deg);"` : "";
+  return `
+    <div class="k-roster-icon">
+      <div class="k-marker-rotate" ${rotateStyle}>
+        <div class="k-marker-shape k-marker-shape--${v.state}"></div>
+      </div>
+    </div>
+  `;
+}
+
 function renderRoster(vehicles) {
   const container = document.getElementById("k-roster");
   if (!vehicles.length) {
@@ -133,9 +146,10 @@ function renderRoster(vehicles) {
     const label = v.state === "moving" ? "In movimento"
                 : v.state === "stopped" ? `Fermo da ${fmtDuration((v.stopDurationMs || 0) / 1000)}`
                 : "Offline";
+    const isActive = v.id === activeVehicleId;
     return `
-      <div class="k-roster-row">
-        <i class="k-dot k-dot--${v.state}"></i>
+      <div class="k-roster-row ${isActive ? "k-roster-row--active" : ""}">
+        ${rosterIconHtml(v)}
         <span class="k-roster-name">${v.name}</span>
         <span class="k-roster-detail">${label}</span>
       </div>
@@ -174,12 +188,14 @@ function renderSpotlight(vehicle) {
   `;
 
   // Highlight this vehicle's marker — no panning or zooming, the overview
-  // stays put; only the marker itself gets a brighter glow.
+  // stays put; only the marker itself gets a brighter glow. Also mirror
+  // the highlight onto the roster list below.
   activeVehicleId = vehicle.id;
   Object.entries(markersByDevice).forEach(([id, marker]) => {
     const v = currentVehicles.find(cv => String(cv.id) === id);
     if (v) marker.setIcon(buildMarkerIcon(v, id === String(vehicle.id)));
   });
+  renderRoster(currentVehicles);
 }
 
 function advanceSpotlight() {

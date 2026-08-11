@@ -1,9 +1,13 @@
 /*
  * GRAUS Fleet Kiosk — /api/stops
  *
- * Detailed, per-vehicle breakdown of today's stops: start/end time,
+ * Detailed, per-vehicle breakdown of a day's stops: start/end time,
  * duration, and location — matched against your Geotab client Zones where
  * possible, reverse-geocoded to a street address otherwise.
+ *
+ * Optional query param: ?date=YYYY-MM-DD (Rome-local). Defaults to today.
+ * "ongoing" stops only make sense for today — past days are always fully
+ * resolved (midnight to midnight).
  */
 
 const { geotabCall } = require("../lib/geotabClient");
@@ -11,14 +15,11 @@ const { computeStops } = require("../lib/stopDetection");
 const { matchZone } = require("../lib/zoneMatcher");
 const { reverseGeocode, resetRequestBudget } = require("../lib/geocoder");
 const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
+const { startOfDayRome, startOfDateStringRome, dateKeyRome } = require("../lib/timezone");
 
 const MIN_STOP_SECONDS = 120;
 const LOGRECORD_LIMIT_PER_DEVICE = 3000;
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
-
-function fmtTime(d) {
-  return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-}
 
 function deviceState(status, now) {
   if (!status) return "offline";
@@ -33,23 +34,24 @@ module.exports = async (req, res) => {
 
   try {
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
+    const requestedDate = req.query && req.query.date; // "YYYY-MM-DD" or undefined
+    const isToday = !requestedDate || requestedDate === dateKeyRome(now);
+
+    const rangeStart = requestedDate ? startOfDateStringRome(requestedDate) : startOfDayRome(now);
+    const rangeEnd = isToday
+      ? now
+      : new Date(rangeStart.getTime() + 24 * 60 * 60 * 1000); // full day, past dates
 
     const devices = await geotabCall("Get", {
       typeName: "Device",
       search: { fromDate: now.toISOString() }
     });
 
-    const statuses = await geotabCall("Get", { typeName: "DeviceStatusInfo" });
+    const statuses = isToday ? await geotabCall("Get", { typeName: "DeviceStatusInfo" }) : [];
     const statusByDevice = {};
     statuses.forEach(s => { statusByDevice[s.device.id] = s; });
 
     const results = await Promise.all(devices.map(async device => {
-      // Whole per-device pipeline wrapped in try/catch: if ANYTHING fails
-      // for this one vehicle (LogRecord fetch, zone match, geocoding), it
-      // still shows up in the dashboard with an empty stop list instead of
-      // silently disappearing from the response.
       try {
         let records = [];
         try {
@@ -57,8 +59,8 @@ module.exports = async (req, res) => {
             typeName: "LogRecord",
             search: {
               deviceSearch: { id: device.id },
-              fromDate: startOfToday.toISOString(),
-              toDate: now.toISOString()
+              fromDate: rangeStart.toISOString(),
+              toDate: rangeEnd.toISOString()
             },
             resultsLimit: LOGRECORD_LIMIT_PER_DEVICE
           });
@@ -66,10 +68,8 @@ module.exports = async (req, res) => {
           console.error("LogRecord fetch failed for device", device.name, err.message);
         }
 
-        const stops = computeStops(records, { minStopSeconds: MIN_STOP_SECONDS, now });
+        const stops = computeStops(records, { minStopSeconds: MIN_STOP_SECONDS, now: rangeEnd });
 
-        // Attach zone/address to each raw stop first (still Date-based),
-        // THEN merge consecutive same-zone stops, THEN format for display.
         const withLocation = await Promise.all(stops.map(async s => {
           let zoneName = null;
           let address = null;
@@ -82,17 +82,16 @@ module.exports = async (req, res) => {
           return { ...s, zoneName, address };
         }));
 
-        // computeStops returns most-recent-first; merging needs chronological order
         withLocation.sort((a, b) => a.start - b.start);
         const merged = mergeConsecutiveZoneStops(withLocation);
 
+        // Only "today" can have a genuinely ongoing stop — past days are
+        // always fully resolved by definition.
         const stopsWithLocation = merged.map(s => ({
           start: s.start.toISOString(),
           end: s.end.toISOString(),
-          startLabel: fmtTime(s.start),
-          endLabel: s.ongoing ? "in corso" : fmtTime(s.end),
           durationSeconds: s.durationSeconds,
-          ongoing: s.ongoing,
+          ongoing: isToday ? s.ongoing : false,
           lat: Math.round(s.lat * 10000) / 10000,
           lng: Math.round(s.lng * 10000) / 10000,
           zoneName: s.zoneName || null,
@@ -100,7 +99,6 @@ module.exports = async (req, res) => {
           mapUrl: `https://www.google.com/maps?q=${s.lat},${s.lng}`
         }));
 
-        // Most-recent-first for display
         stopsWithLocation.sort((a, b) => new Date(b.start) - new Date(a.start));
 
         return {
@@ -128,6 +126,8 @@ module.exports = async (req, res) => {
 
     res.status(200).json({
       generatedAt: now.toISOString(),
+      date: requestedDate || dateKeyRome(now),
+      isToday,
       vehicles: results
     });
   } catch (err) {

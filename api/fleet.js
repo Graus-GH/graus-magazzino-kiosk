@@ -9,6 +9,7 @@
 
 const { geotabCall } = require("../lib/geotabClient");
 const { computeStops } = require("../lib/stopDetection");
+const { startOfDayRome } = require("../lib/timezone");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -19,8 +20,7 @@ module.exports = async (req, res) => {
 
   try {
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = startOfDayRome(now);
 
     const [devices, statuses, trips] = await Promise.all([
       geotabCall("Get", { typeName: "Device", search: { fromDate: now.toISOString() } }),
