@@ -139,6 +139,36 @@ html, body {
   font-weight: 600;
 }
 
+.k-tile-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 500;
+  display: flex;
+  background: rgba(11, 15, 22, 0.88);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.k-tile-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.k-tile-btn--active {
+  background: var(--graus-blue);
+  color: #fff;
+}
+
 .k-legend-item {
   display: flex;
   align-items: center;
@@ -169,28 +199,29 @@ html, body {
 
 .k-kpis {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
 }
 
 .k-kpi {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 20px 22px;
+  padding: 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .k-kpi-value {
   font-family: var(--font-mono);
-  font-size: 44px;
+  font-size: 32px;
   font-weight: 700;
   color: var(--text-primary);
 }
 .k-kpi-value--moving { color: var(--good); }
 .k-kpi-value--stopped { color: var(--warn); }
+.k-kpi-value--offline { color: var(--offline); }
 
 .k-kpi-label {
   font-size: 15px;
@@ -277,6 +308,80 @@ html, body {
   padding: 8px 4px;
 }
 
+/* ---------- Spotlight (rotating vehicle detail) ---------- */
+
+.k-spotlight-name {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.k-spotlight-status {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 14px;
+}
+.k-spotlight-status--moving { background: rgba(52,211,153,0.18); color: var(--good); }
+.k-spotlight-status--stopped { background: rgba(251,191,36,0.18); color: var(--warn); }
+.k-spotlight-status--offline { background: rgba(100,116,139,0.25); color: var(--offline); }
+
+.k-spotlight-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.k-spotlight-stat-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  display: block;
+}
+
+.k-spotlight-stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ---------- Fleet roster ---------- */
+
+.k-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--bg-panel-raised);
+}
+
+.k-roster-name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.k-roster-detail {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---------- Footer / countdown ---------- */
+
+.k-countdown-sep {
+  margin: 0 8px;
+  opacity: 0.5;
+}
+
+#k-countdown {
+  font-family: var(--font-mono);
+}
+
 /* ---------- Footer ---------- */
 
 .k-footer {
@@ -297,4 +402,62 @@ html, body {
   font-weight: 600;
   font-size: 15px;
   padding: 4px 8px !important;
+}
+
+.k-marker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  transform: translate(-8px, -12px);
+}
+
+.k-marker-shape {
+  flex-shrink: 0;
+  transition: filter 0.2s ease;
+}
+
+.k-marker-shape--moving {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 16px solid var(--good);
+  filter: drop-shadow(0 0 3px rgba(52, 211, 153, 0.7));
+  transform-origin: 50% 65%;
+}
+
+.k-marker-shape--stopped {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--warn);
+  border: 2px solid var(--bg-deep);
+}
+
+.k-marker-shape--offline {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--offline);
+  border: 2px solid var(--bg-deep);
+}
+
+.k-marker--active .k-marker-shape--moving {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.95));
+}
+.k-marker--active .k-marker-shape--stopped,
+.k-marker--active .k-marker-shape--offline {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
+}
+
+.k-marker-name {
+  background: rgba(11, 15, 22, 0.85);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
