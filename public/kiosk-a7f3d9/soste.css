@@ -1,0 +1,106 @@
+.s-main {
+  flex: 1;
+  padding: 24px 36px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.s-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  height: 100%;
+  align-content: start;
+}
+
+.s-vehicle-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+.s-vehicle-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.s-vehicle-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.s-vehicle-total {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.s-vehicle-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.s-stop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.s-stop {
+  background: var(--bg-panel-raised);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.s-stop--ongoing {
+  border: 1px solid var(--warn);
+}
+
+.s-stop-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.s-stop-time {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.s-stop-duration {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+.s-stop-location {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.s-stop-location a {
+  color: var(--graus-blue);
+  text-decoration: none;
+}
+
+.s-zone-badge {
+  display: inline-block;
+  background: rgba(46, 143, 224, 0.18);
+  color: var(--graus-blue);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
