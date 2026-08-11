@@ -215,8 +215,23 @@ html, body {
 
 /* ---------- Right rail ---------- */
 
+.k-spotlight-column {
+  width: 440px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.k-spotlight-column .k-spotlight {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .k-rail {
-  width: 540px;
+  width: 440px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -345,12 +360,13 @@ html, body {
 }
 
 .k-spotlight-map {
-  height: 150px;
+  height: 320px;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   background: var(--bg-panel-raised);
+  flex-shrink: 0;
 }
 
 .k-spotlight-map .leaflet-control-attribution {
@@ -388,6 +404,13 @@ html, body {
   font-family: var(--font-mono);
 }
 
+.k-spotlight-eta {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--graus-blue);
+}
+
 .k-spotlight-stat-value {
   font-family: var(--font-mono);
   font-size: 22px;
@@ -418,6 +441,14 @@ html, body {
 .k-roster-row--active {
   border-color: var(--graus-blue);
   background: linear-gradient(90deg, rgba(58, 160, 255, 0.14), var(--bg-panel-raised));
+}
+
+.k-roster-row--clickable {
+  cursor: pointer;
+}
+.k-roster-row--clickable:hover {
+  border-color: var(--border);
+  background: var(--bg-panel);
 }
 
 .k-roster-icon {

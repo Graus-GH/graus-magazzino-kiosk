@@ -6,6 +6,11 @@ const REFRESH_INTERVAL_MS = 60 * 1000;
 const SPOTLIGHT_INTERVAL_MS = 15 * 1000;
 const CENTER = [46.55, 11.9]; // Alta Badia area
 
+// GRAUS bonades ZIJA — home base, taken from real stop coordinates already
+// seen in the Analisi Soste zone matches. Verify/adjust if not precise.
+const HOME_BASE = { lat: 46.6305, lng: 11.8956 };
+const HOME_BASE_RADIUS_M = 300; // within this distance, just say "In sede"
+
 const TILE_LAYERS = {
   voyager: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
   positron: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -29,6 +34,8 @@ let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 
 let spotlightMap;
 let spotlightMarker;
+let spotlightTimer = null;
+let resumeTimer = null;
 
 function createTileLayer(style) {
   return L.tileLayer(TILE_LAYERS[style], { maxZoom: 19 });
@@ -37,6 +44,38 @@ function createTileLayer(style) {
 function initMap(style = "voyager") {
   map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
   tileLayer = createTileLayer(style).addTo(map);
+  map.on("zoomend moveend", declutterLabels);
+}
+
+// Hides overlapping vehicle-name labels (keeping the colored shape always
+// visible) by checking real on-screen bounding-box collisions — no plugin,
+// just measuring rendered label positions after each map move/zoom.
+function declutterLabels() {
+  if (!map) return;
+
+  const entries = Object.entries(markersByDevice)
+    .map(([id, marker]) => ({ id, el: marker.getElement() }))
+    .filter(e => e.el);
+
+  // The active/spotlighted vehicle's label always wins any collision
+  entries.sort((a, b) => (a.id === String(activeVehicleId) ? -1 : b.id === String(activeVehicleId) ? 1 : 0));
+
+  const shownRects = [];
+  entries.forEach(({ el }) => {
+    const nameEl = el.querySelector(".k-marker-name");
+    if (!nameEl) return;
+    nameEl.style.display = ""; // reset before measuring its natural size
+    const r = nameEl.getBoundingClientRect();
+    const padded = { left: r.left - 3, right: r.right + 3, top: r.top - 3, bottom: r.bottom + 3 };
+    const overlaps = shownRects.some(s =>
+      !(padded.right < s.left || padded.left > s.right || padded.bottom < s.top || padded.top > s.bottom)
+    );
+    if (overlaps) {
+      nameEl.style.display = "none";
+    } else {
+      shownRects.push(padded);
+    }
+  });
 }
 
 function initSpotlightMap() {
@@ -78,6 +117,31 @@ function fmtCountdown(ms) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Real driving-time estimate via OSRM's free public routing server
+async function fetchReturnEtaMinutes(lat, lng) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${lng},${lat};${HOME_BASE.lng},${HOME_BASE.lat}?overview=false`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (data.routes && data.routes[0]) {
+      return Math.round(data.routes[0].duration / 60);
+    }
+  } catch (err) {
+    console.error("Errore calcolo tempo di rientro:", err);
+  }
+  return null;
 }
 
 function startClock() {
@@ -149,6 +213,8 @@ function renderMap(vehicles) {
     const bounds = L.latLngBounds(withPosition.map(v => [v.latitude, v.longitude]));
     map.fitBounds(bounds.pad(0.08));
   }
+
+  declutterLabels();
 }
 
 function rosterIconHtml(v) {
@@ -176,8 +242,10 @@ function renderRoster(vehicles) {
                 : v.state === "stopped" ? `Fermo da ${fmtDuration((v.stopDurationMs || 0) / 1000)}`
                 : "Offline";
     const isActive = v.id === activeVehicleId;
+    const clickable = v.latitude && v.longitude;
     return `
-      <div class="k-roster-row ${isActive ? "k-roster-row--active" : ""}">
+      <div class="k-roster-row ${isActive ? "k-roster-row--active" : ""} ${clickable ? "k-roster-row--clickable" : ""}"
+           ${clickable ? `onclick="selectVehicleManually('${v.id}')"` : ""}>
         ${rosterIconHtml(v)}
         <span class="k-roster-name">${v.name}</span>
         <span class="k-roster-detail">${label}</span>
@@ -223,7 +291,26 @@ function renderSpotlight(vehicle) {
       </div>
     </div>
     <div class="k-spotlight-updated">Posizione aggiornata alle ${lastUpdateLabel}</div>
+    <div class="k-spotlight-eta" id="k-spotlight-eta">Rientro in sede: calcolo…</div>
   `;
+
+  // Driving-time estimate back to base — fetched async so it doesn't block
+  // the rest of the card from rendering immediately
+  if (vehicle.latitude && vehicle.longitude) {
+    const distToHome = haversineMeters(vehicle.latitude, vehicle.longitude, HOME_BASE.lat, HOME_BASE.lng);
+    const etaEl = document.getElementById("k-spotlight-eta");
+    if (distToHome <= HOME_BASE_RADIUS_M) {
+      if (etaEl) etaEl.textContent = "📍 In sede";
+    } else {
+      fetchReturnEtaMinutes(vehicle.latitude, vehicle.longitude).then(minutes => {
+        const el = document.getElementById("k-spotlight-eta");
+        if (!el) return; // spotlight moved on before the response arrived
+        el.textContent = minutes != null
+          ? `Rientro in sede: ~${fmtDuration(minutes * 60)}`
+          : "Rientro in sede: non disponibile";
+      });
+    }
+  }
 
   // Mini-map: recenter on this vehicle, close zoom, single marker
   if (spotlightMap && vehicle.latitude && vehicle.longitude) {
@@ -250,6 +337,27 @@ function advanceSpotlight() {
   if (!withPosition.length) return;
   spotlightIndex = (spotlightIndex + 1) % withPosition.length;
   renderSpotlight(withPosition[spotlightIndex]);
+}
+
+function startSpotlightRotation() {
+  if (spotlightTimer) clearInterval(spotlightTimer);
+  spotlightTimer = setInterval(advanceSpotlight, SPOTLIGHT_INTERVAL_MS);
+}
+
+// Called when someone clicks a vehicle in the "Stato flotta" roster:
+// jump straight to it, pause the automatic rotation, and resume the normal
+// 15s cycle again after 30s so a manual look doesn't get interrupted right away.
+function selectVehicleManually(vehicleId) {
+  const withPosition = currentVehicles.filter(v => v.latitude && v.longitude);
+  const idx = withPosition.findIndex(v => String(v.id) === String(vehicleId));
+  if (idx === -1) return;
+
+  spotlightIndex = idx;
+  renderSpotlight(withPosition[idx]);
+
+  if (spotlightTimer) clearInterval(spotlightTimer);
+  if (resumeTimer) clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(startSpotlightRotation, 30 * 1000);
 }
 
 async function refresh() {
@@ -288,4 +396,4 @@ initMap("voyager");
 initSpotlightMap();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);
-setInterval(advanceSpotlight, SPOTLIGHT_INTERVAL_MS);
+startSpotlightRotation();
