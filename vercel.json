@@ -1,1 +1,6 @@
-{}
+{
+  "functions": {
+    "api/fleet.js": { "maxDuration": 30 },
+    "api/stops.js": { "maxDuration": 30 }
+  }
+}
