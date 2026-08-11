@@ -110,12 +110,13 @@ function renderMap(vehicles) {
     markersByDevice[v.id] = marker;
   });
 
-  // Fit the whole fleet in view once, on first load — never re-zoom after
-  // that, so the overview stays stable while the spotlight rotates.
-  if (!hasFitBounds && withPosition.length) {
+  // Re-fit on every refresh so the overview stays tight around the whole
+  // fleet even as vehicles move — but never zoom/pan to a single vehicle
+  // (that's handled separately by the spotlight highlight, not by moving
+  // the camera).
+  if (withPosition.length) {
     const bounds = L.latLngBounds(withPosition.map(v => [v.latitude, v.longitude]));
-    map.fitBounds(bounds.pad(0.25));
-    hasFitBounds = true;
+    map.fitBounds(bounds.pad(0.08));
   }
 }
 

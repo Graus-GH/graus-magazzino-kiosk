@@ -3,7 +3,7 @@
  */
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // heavier endpoint — refresh less often
-const CHART_HOURS = Array.from({ length: 15 }, (_, i) => i + 6); // 06:00–20:00
+const HOME_ZONE_MATCH = "graus"; // case-insensitive substring match on zone name
 
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 
@@ -36,52 +36,19 @@ function startClock() {
   setInterval(tick, 1000);
 }
 
-function renderLeaderboard(vehicles) {
-  const container = document.getElementById("s-leaderboard");
-  const ranked = vehicles
-    .slice()
-    .sort((a, b) => (a.totalStopSeconds || 0) - (b.totalStopSeconds || 0))
-    .slice(0, 5);
+function locationHtml(s) {
+  const isHome = s.zoneName && s.zoneName.toLowerCase().includes(HOME_ZONE_MATCH);
 
-  if (!ranked.length) {
-    container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
-    return;
+  if (isHome) {
+    return `<span class="s-zone-badge s-zone-badge--home">🏠 ${s.zoneName}</span>`;
   }
-
-  container.innerHTML = ranked.map((v, i) => `
-    <div class="k-row ${i === 0 ? "k-row--rank1" : ""}">
-      <span class="k-row-rank">${i + 1}</span>
-      <span class="k-row-name">${v.name}</span>
-      <span class="k-row-value">${fmtDuration(v.totalStopSeconds || 0)}</span>
-    </div>
-  `).join("");
-}
-
-function renderChart(vehicles) {
-  const counts = {};
-  CHART_HOURS.forEach(h => { counts[h] = 0; });
-
-  vehicles.forEach(v => {
-    v.stops.forEach(s => {
-      const hour = new Date(s.start).getHours();
-      if (counts[hour] !== undefined) counts[hour] += 1;
-    });
-  });
-
-  const maxCount = Math.max(1, ...Object.values(counts));
-  const container = document.getElementById("s-chart");
-
-  container.innerHTML = CHART_HOURS.map(h => {
-    const count = counts[h];
-    const heightPct = Math.round((count / maxCount) * 100);
-    return `
-      <div class="s-chart-col">
-        <span class="s-chart-count">${count || ""}</span>
-        <div class="s-chart-bar" style="height:${heightPct}%"></div>
-        <span class="s-chart-hour">${String(h).padStart(2, "0")}</span>
-      </div>
-    `;
-  }).join("");
+  if (s.zoneName) {
+    return `<span class="s-zone-badge">${s.zoneName}</span>`;
+  }
+  if (s.address) {
+    return `<span class="s-stop-address">${s.address}</span> <a href="${s.mapUrl}" target="_blank" rel="noopener">mappa</a>`;
+  }
+  return `<a href="${s.mapUrl}" target="_blank" rel="noopener">${s.lat}, ${s.lng}</a>`;
 }
 
 function renderVehicles(vehicles) {
@@ -106,10 +73,7 @@ function renderVehicles(vehicles) {
               <span class="s-stop-time">${s.startLabel} → ${s.endLabel}</span>
               <span class="s-stop-duration">${fmtDuration(s.durationSeconds)}</span>
             </div>
-            <div class="s-stop-location">
-              ${s.zoneName ? `<span class="s-zone-badge">${s.zoneName}</span>` : ""}
-              <a href="${s.mapUrl}" target="_blank" rel="noopener">${s.lat}, ${s.lng}</a>
-            </div>
+            <div class="s-stop-location">${locationHtml(s)}</div>
           </div>
         `).join("") : '<p class="k-empty">Nessuna sosta rilevata oggi.</p>'}
       </div>
@@ -124,8 +88,6 @@ async function refresh() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    renderLeaderboard(data.vehicles);
-    renderChart(data.vehicles);
     renderVehicles(data.vehicles);
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
