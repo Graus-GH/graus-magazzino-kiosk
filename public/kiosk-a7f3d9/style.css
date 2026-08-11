@@ -1,18 +1,16 @@
 :root {
-  --bg-deep: #0a0f1a;
-  --bg-panel: #121a29;
-  --bg-panel-raised: #182238;
-  --border: #24314a;
+  --bg-deep: #0b0f16;
+  --bg-panel: #131822;
+  --bg-panel-raised: #1a212e;
+  --border: #262e3d;
 
-  --graus-blue: #2e8fe0;
-  --good: #4ade80;
-  --good-dim: #1f6b45;
+  --graus-blue: #3aa0ff;
+  --good: #34d399;
   --warn: #fbbf24;
-  --warn-dim: #8a6412;
   --offline: #64748b;
 
-  --text-primary: #f1f5f9;
-  --text-muted: #90a0b8;
+  --text-primary: #eef2f7;
+  --text-muted: #8a97ab;
 
   --font-display: "Hanken Grotesk", "Segoe UI", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Consolas", monospace;
@@ -44,63 +42,62 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 36px;
+  padding: 22px 40px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
+  flex-shrink: 0;
 }
 
 .k-brand {
   display: flex;
-  align-items: baseline;
-  gap: 16px;
+  align-items: center;
+  gap: 20px;
 }
 
 .k-brand-mark {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--graus-blue);
+  height: 40px;
+  display: block;
 }
 
 .k-brand-sub {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--text-muted);
 }
 
 .k-nav-link {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--graus-blue);
   text-decoration: none;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 12px;
+  border-radius: 10px;
+  padding: 8px 16px;
 }
 
 .k-live {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .k-live-dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--good);
-  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
   animation: k-pulse 2s infinite;
 }
 
 @keyframes k-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
-  70%  { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
+  70%  { box-shadow: 0 0 0 12px rgba(52, 211, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
 }
 
 /* ---------- Main layout ---------- */
@@ -108,15 +105,15 @@ html, body {
 .k-main {
   flex: 1;
   display: flex;
-  gap: 24px;
-  padding: 24px 36px;
+  gap: 26px;
+  padding: 26px 40px;
   min-height: 0;
 }
 
 .k-map-section {
   flex: 1;
   position: relative;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
   border: 1px solid var(--border);
 }
@@ -129,29 +126,29 @@ html, body {
 
 .k-map-legend {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
+  bottom: 22px;
+  left: 22px;
   z-index: 500;
   display: flex;
-  gap: 20px;
-  background: rgba(10, 15, 26, 0.85);
+  gap: 22px;
+  background: rgba(11, 15, 22, 0.88);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 15px;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .k-legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .k-dot {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
 }
 .k-dot--moving { background: var(--good); }
@@ -161,33 +158,34 @@ html, body {
 /* ---------- Right rail ---------- */
 
 .k-rail {
-  width: 480px;
+  width: 540px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .k-kpis {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 
 .k-kpi {
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 18px 20px;
+  border-radius: 16px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .k-kpi-value {
   font-family: var(--font-mono);
-  font-size: 38px;
+  font-size: 44px;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -195,7 +193,7 @@ html, body {
 .k-kpi-value--stopped { color: var(--warn); }
 
 .k-kpi-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -205,8 +203,8 @@ html, body {
 .k-panel {
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px 22px;
+  border-radius: 16px;
+  padding: 22px 24px;
 }
 
 .k-panel--grow {
@@ -218,13 +216,13 @@ html, body {
 
 .k-panel-title {
   margin: 0 0 4px 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .k-panel-sub {
-  margin: 0 0 14px 0;
-  font-size: 13px;
+  margin: 0 0 16px 0;
+  font-size: 14px;
   color: var(--text-muted);
 }
 
@@ -244,8 +242,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  border-radius: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
   background: var(--bg-panel-raised);
 }
 
@@ -256,19 +254,19 @@ html, body {
 
 .k-row-value {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
 }
 
 .k-row--rank1 {
   border: 1px solid var(--good);
-  background: linear-gradient(90deg, rgba(74,222,128,0.14), var(--bg-panel-raised));
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.16), var(--bg-panel-raised));
 }
 .k-row--rank1 .k-row-value { color: var(--good); }
 
 .k-row-rank {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-muted);
   width: 22px;
 }
@@ -282,19 +280,21 @@ html, body {
 /* ---------- Footer ---------- */
 
 .k-footer {
-  padding: 10px 36px 16px;
-  font-size: 13px;
+  padding: 12px 40px 18px;
+  font-size: 14px;
   color: var(--text-muted);
   text-align: right;
+  flex-shrink: 0;
 }
 
 /* ---------- Leaflet marker labels ---------- */
 
 .k-marker-label {
-  background: rgba(10, 15, 26, 0.9) !important;
+  background: rgba(11, 15, 22, 0.92) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--border) !important;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 15px;
+  padding: 4px 8px !important;
 }
