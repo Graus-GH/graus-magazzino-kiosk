@@ -344,6 +344,25 @@ html, body {
   margin-bottom: 8px;
 }
 
+.k-spotlight-map {
+  height: 150px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  background: var(--bg-panel-raised);
+}
+
+.k-spotlight-map .leaflet-control-attribution {
+  background: rgba(11, 15, 22, 0.75);
+  color: var(--text-muted);
+  font-size: 9px;
+  padding: 0 4px;
+}
+.k-spotlight-map .leaflet-control-attribution a {
+  color: var(--text-muted);
+}
+
 .k-spotlight-status {
   display: inline-block;
   font-size: 13px;
@@ -358,8 +377,15 @@ html, body {
 
 .k-spotlight-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 14px;
+}
+
+.k-spotlight-updated {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .k-spotlight-stat-value {

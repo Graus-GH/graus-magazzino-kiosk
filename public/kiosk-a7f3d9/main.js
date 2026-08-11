@@ -11,23 +11,52 @@ const TILE_LAYERS = {
   positron: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
 };
 
+// The spotlight/detail mini-map always uses standard OpenStreetMap tiles —
+// independent from whatever style is chosen for the main overview map —
+// because they show the richest set of labeled points of interest
+// (restaurants, hotels, shops) at close zoom, which is the whole point of
+// that close-up view.
+const SPOTLIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const SPOTLIGHT_ZOOM = 16;
+
 let map;
 let tileLayer;
 let markersByDevice = {}; // id -> Leaflet marker
 let currentVehicles = [];
 let spotlightIndex = 0;
 let activeVehicleId = null;
-let hasFitBounds = false;
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
+
+let spotlightMap;
+let spotlightMarker;
+
+function createTileLayer(style) {
+  return L.tileLayer(TILE_LAYERS[style], { maxZoom: 19 });
+}
 
 function initMap(style = "voyager") {
   map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
-  tileLayer = L.tileLayer(TILE_LAYERS[style], { maxZoom: 19 }).addTo(map);
+  tileLayer = createTileLayer(style).addTo(map);
+}
+
+function initSpotlightMap() {
+  spotlightMap = L.map("k-spotlight-map", {
+    zoomControl: false,
+    attributionControl: true,
+    dragging: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    touchZoom: false
+  }).setView(CENTER, SPOTLIGHT_ZOOM);
+  L.tileLayer(SPOTLIGHT_TILE_URL, {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
+  }).addTo(spotlightMap);
 }
 
 function setTileStyle(style) {
   if (tileLayer) map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(TILE_LAYERS[style], { maxZoom: 19 }).addTo(map);
+  tileLayer = createTileLayer(style).addTo(map);
 
   document.getElementById("tile-voyager").classList.toggle("k-tile-btn--active", style === "voyager");
   document.getElementById("tile-positron").classList.toggle("k-tile-btn--active", style === "positron");
@@ -168,6 +197,10 @@ function renderSpotlight(vehicle) {
                      : vehicle.state === "stopped" ? "Fermo"
                      : "Offline";
 
+  const lastUpdateLabel = vehicle.lastUpdate
+    ? new Date(vehicle.lastUpdate).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "–";
+
   body.innerHTML = `
     <div class="k-spotlight-name">${vehicle.name}</div>
     <span class="k-spotlight-status k-spotlight-status--${vehicle.state}">${statusLabel}</span>
@@ -184,8 +217,22 @@ function renderSpotlight(vehicle) {
         <span class="k-spotlight-stat-value">${fmtDuration(vehicle.todayStopSeconds || 0)}</span>
         <span class="k-spotlight-stat-label">fermo oggi</span>
       </div>
+      <div>
+        <span class="k-spotlight-stat-value">${vehicle.todayStopCount || 0}</span>
+        <span class="k-spotlight-stat-label">soste oggi</span>
+      </div>
     </div>
+    <div class="k-spotlight-updated">Posizione aggiornata alle ${lastUpdateLabel}</div>
   `;
+
+  // Mini-map: recenter on this vehicle, close zoom, single marker
+  if (spotlightMap && vehicle.latitude && vehicle.longitude) {
+    spotlightMap.setView([vehicle.latitude, vehicle.longitude], SPOTLIGHT_ZOOM);
+    if (spotlightMarker) spotlightMap.removeLayer(spotlightMarker);
+    spotlightMarker = L.marker([vehicle.latitude, vehicle.longitude], {
+      icon: buildMarkerIcon(vehicle, true)
+    }).addTo(spotlightMap);
+  }
 
   // Highlight this vehicle's marker — no panning or zooming, the overview
   // stays put; only the marker itself gets a brighter glow. Also mirror
@@ -238,6 +285,7 @@ document.getElementById("tile-positron").addEventListener("click", () => setTile
 
 startClock();
 initMap("voyager");
+initSpotlightMap();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);
 setInterval(advanceSpotlight, SPOTLIGHT_INTERVAL_MS);
