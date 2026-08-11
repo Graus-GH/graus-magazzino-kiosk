@@ -80,6 +80,7 @@ module.exports = async (req, res) => {
         latitude: status ? status.latitude : null,
         longitude: status ? status.longitude : null,
         speed: status ? status.speed : 0,
+        bearing: status ? status.bearing : null,
         state,
         stopDurationMs: currentStop ? currentStop.durationSeconds * 1000 : null,
         todayStopSeconds: Math.round(todayStopSeconds),
