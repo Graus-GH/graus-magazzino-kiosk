@@ -6,6 +6,10 @@ const REFRESH_INTERVAL_MS = 60 * 1000;
 const SPOTLIGHT_INTERVAL_MS = 15 * 1000;
 const CENTER = [46.55, 11.9]; // Alta Badia area
 
+// Driver names only load if the URL has ?key=... matching DRIVER_REVEAL_KEY
+// on the server. Nobody sees this on the normal kiosk URL.
+const driverKey = new URLSearchParams(window.location.search).get("key");
+
 // GRAUS bonades ZIJA — home base, taken from real stop coordinates already
 // seen in the Analisi Soste zone matches. Verify/adjust if not precise.
 const HOME_BASE = { lat: 46.6305, lng: 11.8956 };
@@ -55,27 +59,40 @@ function initMap(style = "voyager") {
 function declutterLabels() {
   if (!map) return;
 
-  const entries = Object.entries(markersByDevice)
-    .map(([id, marker]) => ({ id, el: marker.getElement() }))
-    .filter(e => e.el);
+  // Deterministic, DOM-timing-independent approach: compute each marker's
+  // on-screen point directly from the map's current projection (pure
+  // math, always correct immediately) instead of measuring rendered label
+  // elements via getBoundingClientRect — that depended on the browser
+  // having finished layout/animation at the exact moment we checked, which
+  // proved unreliable.
+  const LABEL_WIDTH_PX = 130; // conservative estimate covering longer vehicle names
+  const LABEL_HEIGHT_PX = 26;
+
+  const entries = Object.entries(markersByDevice).map(([id, marker]) => ({
+    id,
+    marker,
+    point: map.latLngToContainerPoint(marker.getLatLng())
+  }));
 
   // The active/spotlighted vehicle's label always wins any collision
   entries.sort((a, b) => (a.id === String(activeVehicleId) ? -1 : b.id === String(activeVehicleId) ? 1 : 0));
 
-  const shownRects = [];
-  entries.forEach(({ el }) => {
+  const shownPoints = [];
+  entries.forEach(({ marker, point }) => {
+    const el = marker.getElement();
+    if (!el) return;
     const nameEl = el.querySelector(".k-marker-name");
     if (!nameEl) return;
-    nameEl.style.display = ""; // reset before measuring its natural size
-    const r = nameEl.getBoundingClientRect();
-    const padded = { left: r.left - 3, right: r.right + 3, top: r.top - 3, bottom: r.bottom + 3 };
-    const overlaps = shownRects.some(s =>
-      !(padded.right < s.left || padded.left > s.right || padded.bottom < s.top || padded.top > s.bottom)
+
+    const overlaps = shownPoints.some(p =>
+      Math.abs(p.x - point.x) < LABEL_WIDTH_PX && Math.abs(p.y - point.y) < LABEL_HEIGHT_PX
     );
+
     if (overlaps) {
       nameEl.style.display = "none";
     } else {
-      shownRects.push(padded);
+      nameEl.style.display = "";
+      shownPoints.push(point);
     }
   });
 }
@@ -288,7 +305,7 @@ function renderRoster(vehicles) {
       <div class="k-roster-row ${isActive ? "k-roster-row--active" : ""} ${clickable ? "k-roster-row--clickable" : ""}"
            ${clickable ? `onclick="selectVehicleManually('${v.id}')"` : ""}>
         ${rosterIconHtml(v)}
-        <span class="k-roster-name">${v.name}</span>
+        <span class="k-roster-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
         <span class="k-roster-detail">${label}</span>
       </div>
     `;
@@ -315,7 +332,7 @@ function renderSpotlight(vehicle) {
     : "";
 
   body.innerHTML = `
-    <div class="k-spotlight-name">${vehicle.name}</div>
+    <div class="k-spotlight-name">${vehicle.name}${vehicle.driverName ? `<span class="s-driver-badge">${vehicle.driverName}</span>` : ""}</div>
     <span class="k-spotlight-status k-spotlight-status--${vehicle.state}">${statusLabel}</span>
     ${locationLine}
     <div class="k-spotlight-stats">
@@ -413,7 +430,7 @@ function selectVehicleManually(vehicleId) {
 
 async function refresh() {
   try {
-    const resp = await fetch("/api/fleet");
+    const resp = await fetch("/api/fleet" + (driverKey ? "?key=" + encodeURIComponent(driverKey) : ""));
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);

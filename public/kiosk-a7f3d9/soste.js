@@ -26,6 +26,10 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
+function fmtClock(d) {
+  return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 function fmtDuration(seconds) {
   const totalMin = Math.max(0, Math.round(seconds / 60));
   const h = Math.floor(totalMin / 60);
@@ -40,13 +44,16 @@ function fmtCountdown(ms) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-function startCountdown() {
-  const el = document.getElementById("k-mini-countdown");
+function startClock() {
+  const clockEl = document.getElementById("k-clock");
+  const countdownEl = document.getElementById("k-mini-countdown");
   setInterval(() => {
-    el.textContent = selectedDate
+    clockEl.textContent = fmtClock(new Date());
+    countdownEl.textContent = selectedDate
       ? "Vista storica — nessun aggiornamento"
       : "Aggiorna tra " + fmtCountdown(nextRefreshAt - Date.now());
   }, 1000);
+  clockEl.textContent = fmtClock(new Date());
 }
 
 function statusLabel(state) {
@@ -59,13 +66,16 @@ function locationHtml(s) {
   if (isHome) {
     return `<span class="s-zone-badge s-zone-badge--home">🏠 ${s.zoneName}</span>`;
   }
+
+  const mapLink = `<a class="s-map-link" href="${s.mapUrl}" target="_blank" rel="noopener" title="Apri in Google Maps">🗺️</a>`;
+
   if (s.zoneName) {
-    return `<span class="s-zone-badge">${s.zoneName}</span>`;
+    return `<span class="s-zone-badge">${s.zoneName}</span>${mapLink}`;
   }
   if (s.address) {
-    return `<span class="s-stop-address">${s.address}</span> <a href="${s.mapUrl}" target="_blank" rel="noopener">mappa</a>`;
+    return `<span class="s-stop-address">${s.address}</span>${mapLink}`;
   }
-  return `<a href="${s.mapUrl}" target="_blank" rel="noopener">${s.lat}, ${s.lng}</a>`;
+  return `<span class="s-stop-address">${s.lat}, ${s.lng}</span>${mapLink}`;
 }
 
 function renderVehicles(vehicles) {
@@ -86,16 +96,33 @@ function renderVehicles(vehicles) {
     return `
     <div class="s-vehicle-card">
       <div class="s-vehicle-header">
-        <span class="s-vehicle-name">${v.name}${v.driverName ? `<span class="s-driver-name"> — ${v.driverName}</span>` : ""}</span>
-        <span class="s-vehicle-total">${fmtDuration(v.totalStopSeconds)}</span>
+        <div class="s-vehicle-title">
+          <span class="s-vehicle-name">${v.name}</span>
+          ${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}
+        </div>
+        ${hasPosition ? `<button class="s-map-icon-btn" data-vehicle="${v.id}" title="${isOpen ? "Nascondi mappa" : "Mostra mappa"}">📍</button>` : ""}
       </div>
-      <div class="s-vehicle-sub">
-        <span class="k-spotlight-status k-spotlight-status--${v.state}">${statusLabel(v.state)}</span>
-        <span>${v.stopCount} sost${v.stopCount === 1 ? "a" : "e"}</span>
-        <span>${v.distanceKm} km</span>
-        <span>${fmtDuration(v.drivingSeconds)} motore</span>
-        ${hasPosition ? `<button class="s-map-toggle" data-vehicle="${v.id}">${isOpen ? "📍 Nascondi mappa" : "📍 Mostra mappa"}</button>` : ""}
+
+      <span class="k-spotlight-status k-spotlight-status--${v.state}">${statusLabel(v.state)}</span>
+
+      <div class="s-vehicle-kpis">
+        <div class="s-mini-kpi">
+          <span class="s-mini-kpi-value">${v.stopCount}</span>
+          <span class="s-mini-kpi-sub">${fmtDuration(v.totalStopSeconds)}</span>
+          <span class="s-mini-kpi-label">Soste</span>
+        </div>
+        <div class="s-mini-kpi">
+          <span class="s-mini-kpi-value">${v.distanceKm}</span>
+          <span class="s-mini-kpi-sub">km</span>
+          <span class="s-mini-kpi-label">Percorsi</span>
+        </div>
+        <div class="s-mini-kpi">
+          <span class="s-mini-kpi-value">${fmtDuration(v.drivingSeconds)}</span>
+          <span class="s-mini-kpi-sub">&nbsp;</span>
+          <span class="s-mini-kpi-label">Ore motore</span>
+        </div>
       </div>
+
       ${hasPosition ? `<div class="s-vehicle-map" id="s-map-${v.id}" style="display:${isOpen ? "block" : "none"}"></div>` : ""}
       <div class="s-stop-list">
         ${v.stops.length ? v.stops.map(s => {
@@ -120,9 +147,8 @@ function renderVehicles(vehicles) {
   `;
   }).join("");
 
-  // Wire up the toggle buttons and re-open any maps that were open before this refresh
   vehicles.forEach(v => {
-    const btn = container.querySelector(`.s-map-toggle[data-vehicle="${v.id}"]`);
+    const btn = container.querySelector(`.s-map-icon-btn[data-vehicle="${v.id}"]`);
     if (btn) btn.addEventListener("click", () => toggleVehicleMap(v));
     if (v.latitude && v.longitude && openMapIds.has(v.id)) {
       initVehicleMap(v);
@@ -146,18 +172,18 @@ function initVehicleMap(v) {
 
 function toggleVehicleMap(v) {
   const el = document.getElementById("s-map-" + v.id);
-  const btn = document.querySelector(`.s-map-toggle[data-vehicle="${v.id}"]`);
+  const btn = document.querySelector(`.s-map-icon-btn[data-vehicle="${v.id}"]`);
   const isOpen = openMapIds.has(v.id);
 
   if (isOpen) {
     openMapIds.delete(v.id);
     el.style.display = "none";
     if (mapInstances[v.id]) { mapInstances[v.id].remove(); delete mapInstances[v.id]; }
-    if (btn) btn.textContent = "📍 Mostra mappa";
+    if (btn) { btn.title = "Mostra mappa"; btn.classList.remove("s-map-icon-btn--active"); }
   } else {
     openMapIds.add(v.id);
     el.style.display = "block";
-    if (btn) btn.textContent = "📍 Nascondi mappa";
+    if (btn) { btn.title = "Nascondi mappa"; btn.classList.add("s-map-icon-btn--active"); }
     initVehicleMap(v);
   }
 }
@@ -199,6 +225,6 @@ function initDatePicker() {
 }
 
 initDatePicker();
-startCountdown();
+startClock();
 refresh();
 refreshTimer = setInterval(refresh, REFRESH_INTERVAL_MS);

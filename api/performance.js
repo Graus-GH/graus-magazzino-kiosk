@@ -17,6 +17,7 @@ const { geotabCall } = require("../lib/geotabClient");
 const { startOfDayRome, startOfMonthRome, dateKeyRome } = require("../lib/timezone");
 const { parseDurationSeconds } = require("../lib/duration");
 const { cleanName } = require("../lib/cleanName");
+const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
 
 const SPEEDING_THRESHOLD_KMH = Number(process.env.SPEEDING_THRESHOLD_KMH) || 90;
 const LOGRECORD_LIMIT_PER_DEVICE = 3000;
@@ -75,6 +76,9 @@ module.exports = async (req, res) => {
       })
     ]);
 
+    const revealDrivers = isRevealRequested(req);
+    const driverNameByDeviceId = revealDrivers ? await buildDriverNameMap(trips) : {};
+
     // ---- Totals + chart buckets for the selected range ----
     let totalKm = 0;
     let totalDrivingSeconds = 0;
@@ -132,7 +136,11 @@ module.exports = async (req, res) => {
 
     // ---- Km per vehicle, ranked ----
     const kmPerVehicle = devices
-      .map(d => ({ name: cleanName(d.name), km: Math.round((kmByDevice[d.id] || 0) * 10) / 10 }))
+      .map(d => ({
+        name: cleanName(d.name),
+        driverName: revealDrivers ? (driverNameByDeviceId[d.id] || null) : undefined,
+        km: Math.round((kmByDevice[d.id] || 0) * 10) / 10
+      }))
       .sort((a, b) => b.km - a.km);
 
     // ---- Idling per vehicle for the selected range ----
@@ -142,7 +150,11 @@ module.exports = async (req, res) => {
       idlingByDevice[id] = (idlingByDevice[id] || 0) + parseDurationSeconds(t.idlingDuration);
     });
     const idling = devices
-      .map(d => ({ name: cleanName(d.name), idlingSeconds: Math.round(idlingByDevice[d.id] || 0) }))
+      .map(d => ({
+        name: cleanName(d.name),
+        driverName: revealDrivers ? (driverNameByDeviceId[d.id] || null) : undefined,
+        idlingSeconds: Math.round(idlingByDevice[d.id] || 0)
+      }))
       .sort((a, b) => a.idlingSeconds - b.idlingSeconds);
 
     // ---- Speeding: always TODAY only (needs raw GPS — expensive over a range) ----

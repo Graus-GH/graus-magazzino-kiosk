@@ -8,6 +8,8 @@ const TIP_ROTATE_MS = 30 * 1000;
 let currentRange = "week";
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 
+const driverKey = new URLSearchParams(window.location.search).get("key");
+
 const TIPS = [
   "Un minuto di motore acceso a vuoto consuma quanto 200 metri percorsi — spegnere durante le soste lunghe aiuta tutti.",
   "Pianificare le consegne per zona, quando possibile, riduce i chilometri complessivi della giornata.",
@@ -96,7 +98,7 @@ function renderRanking(kmPerVehicle) {
 
   container.innerHTML = kmPerVehicle.map(v => `
     <div class="p-ranking-row">
-      <span class="p-ranking-name">${v.name}</span>
+      <span class="p-ranking-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
       <div class="p-ranking-track"><div class="p-ranking-fill" style="width:${Math.round((v.km / maxKm) * 100)}%"></div></div>
       <span class="p-ranking-value">${v.km} km</span>
     </div>
@@ -111,7 +113,7 @@ function renderIdling(idling) {
   }
   container.innerHTML = idling.map(v => `
     <div class="p-idling-row">
-      <span class="p-row-name">${v.name}</span>
+      <span class="p-row-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
       <span class="p-row-detail">${fmtDuration(v.idlingSeconds)}</span>
     </div>
   `).join("");
@@ -134,7 +136,7 @@ function renderSpeeding(speeding, thresholdKmh) {
 
 async function refresh() {
   try {
-    const resp = await fetch("/api/performance?range=" + currentRange);
+    const resp = await fetch("/api/performance?range=" + currentRange + (driverKey ? "&key=" + encodeURIComponent(driverKey) : ""));
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);

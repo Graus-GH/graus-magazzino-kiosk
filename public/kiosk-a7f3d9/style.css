@@ -75,6 +75,18 @@ html, body {
   padding: 8px 16px;
 }
 
+.s-driver-badge {
+  display: inline-block;
+  background: rgba(58, 160, 255, 0.18);
+  color: var(--graus-blue);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 20px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .s-date-picker {
   font-family: var(--font-mono);
   font-size: 14px;

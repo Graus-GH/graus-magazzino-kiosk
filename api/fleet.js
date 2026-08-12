@@ -17,6 +17,7 @@ const { matchZone } = require("../lib/zoneMatcher");
 const { reverseGeocode, resetRequestBudget } = require("../lib/geocoder");
 const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
 const { isHomeZone } = require("../lib/homeZone");
+const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -44,6 +45,9 @@ module.exports = async (req, res) => {
       const id = t.device.id;
       distanceByDevice[id] = (distanceByDevice[id] || 0) + (t.distance || 0);
     });
+
+    const revealDrivers = isRevealRequested(req);
+    const driverNameByDeviceId = revealDrivers ? await buildDriverNameMap(trips) : {};
 
     const logRecordsByDevice = {};
     await Promise.all(devices.map(async device => {
@@ -110,6 +114,7 @@ module.exports = async (req, res) => {
       return {
         id: device.id,
         name: cleanName(device.name),
+        driverName: revealDrivers ? (driverNameByDeviceId[device.id] || null) : undefined,
         latitude: status ? status.latitude : null,
         longitude: status ? status.longitude : null,
         speed: status ? status.speed : 0,
