@@ -19,7 +19,6 @@ const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
 const { isHomeZone } = require("../lib/homeZone");
 const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
 const { getSpeedingRuleId } = require("../lib/speedingRule");
-const { getSpeedingRuleId } = require("../lib/speedingRule");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
