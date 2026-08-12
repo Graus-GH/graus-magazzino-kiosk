@@ -18,9 +18,8 @@ const { startOfDayRome, startOfMonthRome, dateKeyRome } = require("../lib/timezo
 const { parseDurationSeconds } = require("../lib/duration");
 const { cleanName } = require("../lib/cleanName");
 const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
+const { getSpeedingRuleId, SPEEDING_RULE_NAME } = require("../lib/speedingRule");
 
-const SPEEDING_THRESHOLD_KMH = Number(process.env.SPEEDING_THRESHOLD_KMH) || 90;
-const LOGRECORD_LIMIT_PER_DEVICE = 3000;
 const TRIP_RESULTS_LIMIT = 50000;
 
 function romeMonthLabel(date) {
@@ -157,40 +156,51 @@ module.exports = async (req, res) => {
       }))
       .sort((a, b) => a.idlingSeconds - b.idlingSeconds);
 
-    // ---- Speeding: always TODAY only (needs raw GPS — expensive over a range) ----
-    const speedingResults = await Promise.all(devices.map(async device => {
-      try {
-        const records = await geotabCall("Get", {
-          typeName: "LogRecord",
+    // ---- Speeding: Geotab's own "Eccesso di velocità (nuova versione)" rule,
+    // which compares actual speed against the posted road speed limit —
+    // triggers at 20%+ over the limit for 5+ seconds. We just read the
+    // ExceptionEvents Geotab already computed, scoped to the SAME range as
+    // everything else on this page (no more "today only" limitation, since
+    // this doesn't need raw GPS re-analysis on our end).
+    let speedingResults = [];
+    let speedingAvailable = false;
+    try {
+      const ruleId = await getSpeedingRuleId();
+      if (ruleId) {
+        speedingAvailable = true;
+        const events = await geotabCall("Get", {
+          typeName: "ExceptionEvent",
           search: {
-            deviceSearch: { id: device.id },
-            fromDate: startOfToday.toISOString(),
+            ruleSearch: { id: ruleId },
+            fromDate: rangeFrom.toISOString(),
             toDate: now.toISOString()
-          },
-          resultsLimit: LOGRECORD_LIMIT_PER_DEVICE
-        });
-
-        let eventCount = 0;
-        let maxSpeed = 0;
-        let wasOver = false;
-        records.forEach(r => {
-          const speed = r.speed || 0;
-          if (speed > maxSpeed) maxSpeed = speed;
-          if (speed > SPEEDING_THRESHOLD_KMH) {
-            if (!wasOver) eventCount += 1;
-            wasOver = true;
-          } else {
-            wasOver = false;
           }
         });
 
-        return { name: cleanName(device.name), eventCount, maxSpeedKmh: Math.round(maxSpeed) };
-      } catch (err) {
-        console.error("Speeding check failed for device", device.name, err.message);
-        return { name: cleanName(device.name), eventCount: 0, maxSpeedKmh: 0 };
+        const byDevice = {};
+        events.forEach(e => {
+          const id = e.device && e.device.id;
+          if (!id) return;
+          if (!byDevice[id]) byDevice[id] = { eventCount: 0, totalDurationSeconds: 0 };
+          byDevice[id].eventCount += 1;
+          const durSec = (new Date(e.activeTo) - new Date(e.activeFrom)) / 1000;
+          if (isFinite(durSec) && durSec > 0) byDevice[id].totalDurationSeconds += durSec;
+        });
+
+        speedingResults = devices
+          .map(d => ({
+            name: cleanName(d.name),
+            driverName: revealDrivers ? (driverNameByDeviceId[d.id] || null) : undefined,
+            eventCount: (byDevice[d.id] || {}).eventCount || 0,
+            totalDurationSeconds: Math.round((byDevice[d.id] || {}).totalDurationSeconds || 0)
+          }))
+          .sort((a, b) => b.eventCount - a.eventCount);
+      } else {
+        console.error("Speeding rule not found by name:", SPEEDING_RULE_NAME);
       }
-    }));
-    speedingResults.sort((a, b) => b.eventCount - a.eventCount);
+    } catch (err) {
+      console.error("Speeding via ExceptionEvent failed:", err.message);
+    }
 
     res.status(200).json({
       generatedAt: now.toISOString(),
@@ -205,7 +215,8 @@ module.exports = async (req, res) => {
       kmPerVehicle,
       idling,
       speeding: speedingResults,
-      speedThresholdKmh: SPEEDING_THRESHOLD_KMH
+      speedingAvailable,
+      speedingRuleName: SPEEDING_RULE_NAME
     });
   } catch (err) {
     console.error("GRAUS Fleet Kiosk performance API error:", err);

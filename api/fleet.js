@@ -18,6 +18,8 @@ const { reverseGeocode, resetRequestBudget } = require("../lib/geocoder");
 const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
 const { isHomeZone } = require("../lib/homeZone");
 const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
+const { getSpeedingRuleId } = require("../lib/speedingRule");
+const { getSpeedingRuleId } = require("../lib/speedingRule");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -48,6 +50,29 @@ module.exports = async (req, res) => {
 
     const revealDrivers = isRevealRequested(req);
     const driverNameByDeviceId = revealDrivers ? await buildDriverNameMap(trips) : {};
+
+    // Speeding today, fleet-wide total — cheap to add here since it just
+    // reads events Geotab already computed (via the "Eccesso di velocità
+    // (nuova versione)" rule), no raw GPS re-analysis needed.
+    let todaySpeedingEvents = 0;
+    let speedingAvailable = false;
+    try {
+      const ruleId = await getSpeedingRuleId();
+      if (ruleId) {
+        speedingAvailable = true;
+        const events = await geotabCall("Get", {
+          typeName: "ExceptionEvent",
+          search: {
+            ruleSearch: { id: ruleId },
+            fromDate: startOfToday.toISOString(),
+            toDate: now.toISOString()
+          }
+        });
+        todaySpeedingEvents = events.length;
+      }
+    } catch (err) {
+      console.error("Speeding KPI fetch failed:", err.message);
+    }
 
     const logRecordsByDevice = {};
     await Promise.all(devices.map(async device => {
@@ -131,7 +156,9 @@ module.exports = async (req, res) => {
 
     res.status(200).json({
       generatedAt: now.toISOString(),
-      vehicles
+      vehicles,
+      todaySpeedingEvents,
+      speedingAvailable
     });
   } catch (err) {
     console.error("GRAUS Fleet Kiosk API error:", err);

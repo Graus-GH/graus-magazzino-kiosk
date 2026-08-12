@@ -119,17 +119,26 @@ function renderIdling(idling) {
   `).join("");
 }
 
-function renderSpeeding(speeding, thresholdKmh) {
-  document.getElementById("p-speeding-sub").textContent = `Oggi, sopra ${thresholdKmh} km/h`;
+function renderSpeeding(speeding, available, ruleName) {
+  const sub = document.getElementById("p-speeding-sub");
   const container = document.getElementById("p-speeding-list");
+
+  if (!available) {
+    sub.textContent = `Regola "${ruleName}" non trovata in Geotab`;
+    container.innerHTML = '<p class="k-empty">Verifica che la regola sia attiva in MyGeotab (Amministrazione → Regole e Gruppi).</p>';
+    return;
+  }
+
+  sub.textContent = "Superamento limiti stradali — regola Geotab";
+
   if (!speeding.length) {
     container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
     return;
   }
   container.innerHTML = speeding.map(v => `
     <div class="p-speeding-row ${v.eventCount > 0 ? "p-speeding-row--flagged" : ""}">
-      <span class="p-row-name">${v.name}</span>
-      <span class="p-row-detail">${v.eventCount > 0 ? `${v.eventCount} event${v.eventCount === 1 ? "o" : "i"} · max ${v.maxSpeedKmh} km/h` : "Nessun eccesso"}</span>
+      <span class="p-row-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
+      <span class="p-row-detail">${v.eventCount > 0 ? `${v.eventCount} event${v.eventCount === 1 ? "o" : "i"} · ${fmtDuration(v.totalDurationSeconds)}` : "Nessun eccesso"}</span>
     </div>
   `).join("");
 }
@@ -145,7 +154,7 @@ async function refresh() {
     renderTrend(data.chart);
     renderRanking(data.kmPerVehicle);
     renderIdling(data.idling);
-    renderSpeeding(data.speeding, data.speedThresholdKmh);
+    renderSpeeding(data.speeding, data.speedingAvailable, data.speedingRuleName);
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
   } catch (err) {

@@ -80,8 +80,11 @@ Per ora, in fase di test, va bene così.
 
 | Nome | Descrizione | Default |
 |---|---|---|
-| `SPEEDING_THRESHOLD_KMH` | Soglia oltre la quale un punto GPS conta come "eccesso di velocità" nella dashboard Performance — è una soglia fissa, non i limiti stradali reali (vedi nota nel codice `api/performance.js`) | 90 |
-| `DRIVER_REVEAL_KEY` | Chiave segreta per vedere i nomi conducente nella pagina Analisi Soste. Impostane una a piacere (es. una stringa casuale), poi apri la pagina aggiungendo `?key=quella-stringa` in fondo all'URL — solo così i nomi compaiono, sulla TV pubblica restano sempre nascosti | (nessuno — funzione disattivata finché non la imposti) |
+| `DRIVER_REVEAL_KEY` | Chiave segreta per vedere i nomi conducente in tutte e tre le dashboard. Impostane una a piacere (es. una stringa casuale), poi apri una pagina aggiungendo `?key=quella-stringa` in fondo all'URL — solo così i nomi compaiono, sulla TV pubblica restano sempre nascosti | (nessuno — funzione disattivata finché non la imposti) |
+
+## Eccessi di velocità
+
+Legge la regola Geotab predefinita **"Eccesso di velocità (nuova versione)"** (attiva a partire da +20% sul limite stradale per 5+ secondi) invece di ricalcolare da soli i dati GPS grezzi — più preciso perché tiene conto del limite reale di ogni strada, e permette di vedere gli eccessi anche su settimana/mese/anno, non solo oggi. Se nella dashboard Performance il pannello mostra "Regola non trovata", verifica in MyGeotab che quella regola esista con lo stesso nome esatto e sia attiva.
 
 ## Nota sul tempo di idling a zero
 

@@ -205,7 +205,7 @@ function startClock() {
   el.textContent = fmtClock(new Date());
 }
 
-function renderKpis(vehicles) {
+function renderKpis(vehicles, todaySpeedingEvents, speedingAvailable) {
   document.getElementById("kpi-total").textContent = vehicles.length;
   document.getElementById("kpi-moving").textContent =
     vehicles.filter(v => v.state === "moving").length;
@@ -227,6 +227,8 @@ function renderKpis(vehicles) {
   const totalStopCount = vehicles.reduce((sum, v) => sum + (v.todayStopCount || 0), 0);
   document.getElementById("kpi-stop-duration").textContent = fmtDuration(totalStopSeconds);
   document.getElementById("kpi-stop-count").textContent = totalStopCount;
+
+  document.getElementById("kpi-speeding").textContent = speedingAvailable ? todaySpeedingEvents : "n/d";
 }
 
 function statusColor(state) {
@@ -436,7 +438,7 @@ async function refresh() {
     if (data.error) throw new Error(data.error);
 
     currentVehicles = data.vehicles;
-    renderKpis(currentVehicles);
+    renderKpis(currentVehicles, data.todaySpeedingEvents, data.speedingAvailable);
     renderMap(currentVehicles);
     renderRoster(currentVehicles);
 
