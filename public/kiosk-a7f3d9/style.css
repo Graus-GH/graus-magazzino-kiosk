@@ -122,6 +122,14 @@ html, body {
   animation: k-pulse 2s infinite;
 }
 
+.k-mini-countdown {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-align: right;
+  margin-top: 4px;
+}
+
 @keyframes k-pulse {
   0%   { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
   70%  { box-shadow: 0 0 0 12px rgba(52, 211, 153, 0); }
@@ -388,7 +396,7 @@ html, body {
   border-radius: 10px;
 }
 
-.k-map-expand-btn {
+.k-map-icon-btn {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -402,7 +410,19 @@ html, body {
   font-size: 16px;
   cursor: pointer;
 }
-.k-map-expand-btn:hover {
+.k-map-icon-btn:hover {
+  background: var(--graus-blue);
+  border-color: var(--graus-blue);
+}
+
+.k-map-sat-btn {
+  right: 50px;
+  display: none;
+}
+.k-spotlight-map-wrap--expanded .k-map-sat-btn {
+  display: block;
+}
+.k-map-sat-btn--active {
   background: var(--graus-blue);
   border-color: var(--graus-blue);
 }

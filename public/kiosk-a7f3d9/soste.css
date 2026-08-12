@@ -48,9 +48,40 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   font-size: 13px;
   color: var(--text-muted);
   margin-bottom: 12px;
+}
+
+.s-driver-name {
+  color: var(--graus-blue);
+  font-weight: 600;
+}
+
+.s-map-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--graus-blue);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: auto;
+}
+.s-map-toggle:hover {
+  background: var(--bg-panel-raised);
+}
+
+.s-vehicle-map {
+  height: 180px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .s-stop-list {

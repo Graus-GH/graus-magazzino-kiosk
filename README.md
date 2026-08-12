@@ -81,6 +81,7 @@ Per ora, in fase di test, va bene così.
 | Nome | Descrizione | Default |
 |---|---|---|
 | `SPEEDING_THRESHOLD_KMH` | Soglia oltre la quale un punto GPS conta come "eccesso di velocità" nella dashboard Performance — è una soglia fissa, non i limiti stradali reali (vedi nota nel codice `api/performance.js`) | 90 |
+| `DRIVER_REVEAL_KEY` | Chiave segreta per vedere i nomi conducente nella pagina Analisi Soste. Impostane una a piacere (es. una stringa casuale), poi apri la pagina aggiungendo `?key=quella-stringa` in fondo all'URL — solo così i nomi compaiono, sulla TV pubblica restano sempre nascosti | (nessuno — funzione disattivata finché non la imposti) |
 
 ## Nota sul tempo di idling a zero
 

@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=4" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=5" />
 </head>
 <body>
 
@@ -29,6 +29,7 @@
         <span class="k-live-dot"></span>
         <span id="k-clock">--:--:--</span>
       </div>
+      <div class="k-mini-countdown" id="k-mini-countdown">--</div>
     </header>
 
     <main class="k-main">
@@ -54,7 +55,8 @@
           <p class="k-panel-sub">Rotazione automatica ogni 15 secondi</p>
           <div class="k-spotlight-map-wrap">
             <div id="k-spotlight-map" class="k-spotlight-map"></div>
-            <button id="k-spotlight-expand" class="k-map-expand-btn" title="Ingrandisci">⤢</button>
+            <button id="k-spotlight-satellite" class="k-map-icon-btn k-map-sat-btn" title="Satellite">🛰️</button>
+            <button id="k-spotlight-expand" class="k-map-icon-btn k-map-expand-btn" title="Ingrandisci">⤢</button>
           </div>
           <div id="k-spotlight-body">
             <p class="k-empty">Caricamento…</p>
@@ -89,6 +91,14 @@
             <span class="k-kpi-value" id="kpi-avg-stop">–</span>
             <span class="k-kpi-label">Sosta media</span>
           </div>
+          <div class="k-kpi">
+            <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stop-duration">–</span>
+            <span class="k-kpi-label">Durata soste oggi</span>
+          </div>
+          <div class="k-kpi">
+            <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stop-count">–</span>
+            <span class="k-kpi-label">Soste oggi</span>
+          </div>
         </div>
 
         <div class="k-panel k-panel--grow">
@@ -105,6 +115,6 @@
 
   </div>
 
-  <script src="/kiosk-a7f3d9/main.js?v=5"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=6"></script>
 </body>
 </html>

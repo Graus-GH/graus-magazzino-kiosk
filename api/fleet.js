@@ -2,9 +2,11 @@
  * GRAUS Fleet Kiosk — /api/fleet
  *
  * Live overview: vehicle positions/status, today's distance, and today's
- * stop time/count computed from raw GPS points (see lib/stopDetection.js)
- * rather than Geotab's Trip.stopDuration, which can miss stops where the
- * engine was left running.
+ * stop time/count. Stop detection uses the same pipeline as /api/stops
+ * (raw GPS + zone matching + consecutive same-zone merge) so the two
+ * dashboards report consistent numbers. Stops at the GRAUS home base are
+ * excluded from the stop-time/count totals — parking at base isn't a
+ * meaningful "stop" for these metrics.
  */
 
 const { geotabCall } = require("../lib/geotabClient");
@@ -13,6 +15,8 @@ const { startOfDayRome } = require("../lib/timezone");
 const { cleanName } = require("../lib/cleanName");
 const { matchZone } = require("../lib/zoneMatcher");
 const { reverseGeocode, resetRequestBudget } = require("../lib/geocoder");
+const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
+const { isHomeZone } = require("../lib/homeZone");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -41,7 +45,6 @@ module.exports = async (req, res) => {
       distanceByDevice[id] = (distanceByDevice[id] || 0) + (t.distance || 0);
     });
 
-    // Fetch today's raw GPS points per device, in parallel, to detect real stops
     const logRecordsByDevice = {};
     await Promise.all(devices.map(async device => {
       try {
@@ -73,20 +76,34 @@ module.exports = async (req, res) => {
       }
 
       const records = logRecordsByDevice[device.id] || [];
-      const stops = computeStops(records, { minStopSeconds: MIN_STOP_SECONDS, now });
-      const todayStopSeconds = stops.reduce((sum, s) => sum + s.durationSeconds, 0);
+      const rawStops = computeStops(records, { minStopSeconds: MIN_STOP_SECONDS, now });
 
-      const currentStop = stops.find(s => s.ongoing) || null;
+      const stopsWithZone = await Promise.all(rawStops.map(async s => ({
+        ...s,
+        zoneName: await matchZone(s.lat, s.lng).catch(() => null)
+      })));
+      stopsWithZone.sort((a, b) => a.start - b.start);
+      const merged = mergeConsecutiveZoneStops(stopsWithZone);
 
-      // Where a stopped vehicle actually is: a known client Zone if it
-      // matches one, otherwise a reverse-geocoded street address.
+      const countedStops = merged.filter(s => !isHomeZone(s.zoneName));
+      const todayStopSeconds = countedStops.reduce((sum, s) => sum + s.durationSeconds, 0);
+      const todayStopCount = countedStops.length;
+
+      const currentStop = merged.find(s => s.ongoing) || null;
+
+      // Where a stopped vehicle actually is: its matched zone if there is
+      // one (even the home base — this is live status, not a metric), or a
+      // reverse-geocoded address otherwise.
       let location = null;
       if (state === "stopped" && status) {
-        try {
-          location = await matchZone(status.latitude, status.longitude);
-          if (!location) location = await reverseGeocode(status.latitude, status.longitude);
-        } catch (err) {
-          console.error("Location lookup failed for device", device.name, err.message);
+        if (currentStop && currentStop.zoneName) {
+          location = currentStop.zoneName;
+        } else {
+          try {
+            location = await reverseGeocode(status.latitude, status.longitude);
+          } catch (err) {
+            console.error("Reverse geocode failed for device", device.name, err.message);
+          }
         }
       }
 
@@ -102,7 +119,7 @@ module.exports = async (req, res) => {
         location,
         stopDurationMs: currentStop ? currentStop.durationSeconds * 1000 : null,
         todayStopSeconds: Math.round(todayStopSeconds),
-        todayStopCount: stops.length,
+        todayStopCount,
         todayDistanceKm: Math.round((distanceByDevice[device.id] || 0) * 10) / 10
       };
     }));

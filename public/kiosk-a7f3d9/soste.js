@@ -6,18 +6,20 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // heavier endpoint — refresh less 
 const HOME_ZONE_MATCH = "graus"; // case-insensitive substring match on zone name
 const LONG_STOP_SECONDS = 30 * 60; // flag stops at 30+ min away from base — adjust freely
 
-let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 let refreshTimer = null;
 let selectedDate = null; // null = today
+let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
+
+const openMapIds = new Set(); // vehicle ids whose mini-map is currently expanded
+const mapInstances = {};      // vehicle id -> Leaflet map instance
+
+// Driver names only load if the URL has ?key=... matching DRIVER_REVEAL_KEY
+// on the server. Nobody sees this on the normal kiosk URL.
+const driverKey = new URLSearchParams(window.location.search).get("key");
 
 function todayKey() {
-  // Local (browser) date — the kiosk's own clock/timezone, which is Italy
   const d = new Date();
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
-
-function fmtClock(d) {
-  return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function fmtTime(iso) {
@@ -38,10 +40,13 @@ function fmtCountdown(ms) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-function startClock() {
-  const el = document.getElementById("k-clock");
-  setInterval(() => { el.textContent = fmtClock(new Date()); }, 1000);
-  el.textContent = fmtClock(new Date());
+function startCountdown() {
+  const el = document.getElementById("k-mini-countdown");
+  setInterval(() => {
+    el.textContent = selectedDate
+      ? "Vista storica — nessun aggiornamento"
+      : "Aggiorna tra " + fmtCountdown(nextRefreshAt - Date.now());
+  }, 1000);
 }
 
 function statusLabel(state) {
@@ -66,21 +71,32 @@ function locationHtml(s) {
 function renderVehicles(vehicles) {
   const container = document.getElementById("s-vehicles");
 
+  // Tear down any live map instances before the DOM they live in is replaced
+  Object.values(mapInstances).forEach(m => m.remove());
+  for (const k in mapInstances) delete mapInstances[k];
+
   if (!vehicles.length) {
     container.innerHTML = '<p class="k-empty">Nessun veicolo trovato.</p>';
     return;
   }
 
-  container.innerHTML = vehicles.map(v => `
+  container.innerHTML = vehicles.map(v => {
+    const hasPosition = v.latitude && v.longitude;
+    const isOpen = openMapIds.has(v.id);
+    return `
     <div class="s-vehicle-card">
       <div class="s-vehicle-header">
-        <span class="s-vehicle-name">${v.name}</span>
+        <span class="s-vehicle-name">${v.name}${v.driverName ? `<span class="s-driver-name"> — ${v.driverName}</span>` : ""}</span>
         <span class="s-vehicle-total">${fmtDuration(v.totalStopSeconds)}</span>
       </div>
       <div class="s-vehicle-sub">
         <span class="k-spotlight-status k-spotlight-status--${v.state}">${statusLabel(v.state)}</span>
         <span>${v.stopCount} sost${v.stopCount === 1 ? "a" : "e"}</span>
+        <span>${v.distanceKm} km</span>
+        <span>${fmtDuration(v.drivingSeconds)} motore</span>
+        ${hasPosition ? `<button class="s-map-toggle" data-vehicle="${v.id}">${isOpen ? "📍 Nascondi mappa" : "📍 Mostra mappa"}</button>` : ""}
       </div>
+      ${hasPosition ? `<div class="s-vehicle-map" id="s-map-${v.id}" style="display:${isOpen ? "block" : "none"}"></div>` : ""}
       <div class="s-stop-list">
         ${v.stops.length ? v.stops.map(s => {
           const isHome = s.zoneName && s.zoneName.toLowerCase().includes(HOME_ZONE_MATCH);
@@ -101,18 +117,64 @@ function renderVehicles(vehicles) {
         }).join("") : '<p class="k-empty">Nessuna sosta rilevata.</p>'}
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
+
+  // Wire up the toggle buttons and re-open any maps that were open before this refresh
+  vehicles.forEach(v => {
+    const btn = container.querySelector(`.s-map-toggle[data-vehicle="${v.id}"]`);
+    if (btn) btn.addEventListener("click", () => toggleVehicleMap(v));
+    if (v.latitude && v.longitude && openMapIds.has(v.id)) {
+      initVehicleMap(v);
+    }
+  });
+}
+
+function initVehicleMap(v) {
+  if (mapInstances[v.id]) return;
+  const el = document.getElementById("s-map-" + v.id);
+  if (!el) return;
+  const map = L.map(el, { zoomControl: true, attributionControl: true })
+    .setView([v.latitude, v.longitude], 15);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
+  }).addTo(map);
+  L.marker([v.latitude, v.longitude]).addTo(map).bindPopup(v.name);
+  mapInstances[v.id] = map;
+}
+
+function toggleVehicleMap(v) {
+  const el = document.getElementById("s-map-" + v.id);
+  const btn = document.querySelector(`.s-map-toggle[data-vehicle="${v.id}"]`);
+  const isOpen = openMapIds.has(v.id);
+
+  if (isOpen) {
+    openMapIds.delete(v.id);
+    el.style.display = "none";
+    if (mapInstances[v.id]) { mapInstances[v.id].remove(); delete mapInstances[v.id]; }
+    if (btn) btn.textContent = "📍 Mostra mappa";
+  } else {
+    openMapIds.add(v.id);
+    el.style.display = "block";
+    if (btn) btn.textContent = "📍 Nascondi mappa";
+    initVehicleMap(v);
+  }
 }
 
 async function refresh() {
   try {
-    const url = selectedDate ? `/api/stops?date=${selectedDate}` : "/api/stops";
-    const resp = await fetch(url);
+    const params = new URLSearchParams();
+    if (selectedDate) params.set("date", selectedDate);
+    if (driverKey) params.set("key", driverKey);
+    const qs = params.toString();
+    const resp = await fetch("/api/stops" + (qs ? "?" + qs : ""));
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
     renderVehicles(data.vehicles);
+    nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
   } catch (err) {
     console.error("GRAUS Fleet Kiosk (soste) — errore aggiornamento:", err);
   }
@@ -136,7 +198,7 @@ function initDatePicker() {
   input.addEventListener("change", () => setDate(input.value));
 }
 
-startClock();
 initDatePicker();
+startCountdown();
 refresh();
 refreshTimer = setInterval(refresh, REFRESH_INTERVAL_MS);

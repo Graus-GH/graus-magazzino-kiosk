@@ -9,8 +9,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=4" />
-<link rel="stylesheet" href="/kiosk-a7f3d9/soste.css?v=4" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=5" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/soste.css?v=6" />
 </head>
 <body>
 
@@ -24,10 +27,7 @@
         <a href="/kiosk-a7f3d9/" class="k-nav-link">← Mappa</a>
         <a href="/kiosk-a7f3d9/performance.html" class="k-nav-link">Performance →</a>
       </div>
-      <div class="k-live">
-        <span class="k-live-dot"></span>
-        <span id="k-clock">--:--:--</span>
-      </div>
+      <div class="k-mini-countdown" id="k-mini-countdown">--</div>
     </header>
 
     <main class="s-main">
@@ -38,6 +38,6 @@
 
   </div>
 
-  <script src="/kiosk-a7f3d9/soste.js?v=4"></script>
+  <script src="/kiosk-a7f3d9/soste.js?v=6"></script>
 </body>
 </html>

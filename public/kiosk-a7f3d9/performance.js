@@ -5,6 +5,7 @@
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 const TIP_ROTATE_MS = 30 * 1000;
 
+let currentRange = "week";
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 
 const TIPS = [
@@ -16,6 +17,12 @@ const TIPS = [
   "Una manutenzione regolare del veicolo previene i fermi imprevisti più delle riparazioni last-minute.",
   "Segnalare per tempo un problema al mezzo evita che diventi un guasto più costoso più avanti."
 ];
+
+const RANGE_TITLES = {
+  week: "Andamento — ultimi 7 giorni",
+  month: "Andamento — questo mese",
+  year: "Andamento — ultimi 12 mesi"
+};
 
 function fmtClock(d) {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -37,13 +44,12 @@ function fmtDuration(seconds) {
 
 function startClock() {
   const el = document.getElementById("k-clock");
-  const countdownEl = document.getElementById("k-countdown");
-  const tick = () => {
+  const countdownEl = document.getElementById("k-mini-countdown");
+  setInterval(() => {
     el.textContent = fmtClock(new Date());
-    countdownEl.textContent = "Prossimo aggiornamento tra " + fmtCountdown(nextRefreshAt - Date.now());
-  };
-  tick();
-  setInterval(tick, 1000);
+    countdownEl.textContent = "Aggiorna tra " + fmtCountdown(nextRefreshAt - Date.now());
+  }, 1000);
+  el.textContent = fmtClock(new Date());
 }
 
 function startTips() {
@@ -54,27 +60,47 @@ function startTips() {
   setInterval(show, TIP_ROTATE_MS);
 }
 
-function renderTotals(monthKm, weekKm) {
-  document.getElementById("p-month-km").textContent = Math.round(monthKm);
-  document.getElementById("p-week-km").textContent = Math.round(weekKm);
+function renderKpis(totals) {
+  document.getElementById("p-total-km").textContent = totals.km;
+  document.getElementById("p-avg-km").textContent = totals.avgKmPerDay;
+  document.getElementById("p-driving-hours").textContent = fmtDuration(totals.drivingHoursSeconds);
+  document.getElementById("p-idling-hours").textContent = fmtDuration(totals.idlingHoursSeconds);
 }
 
-function renderTrend(dailyKm) {
-  const maxKm = Math.max(1, ...dailyKm.map(d => d.km));
-  const todayKey = new Date().toISOString().slice(0, 10);
+function renderTrend(chart) {
+  document.getElementById("p-trend-title").textContent = RANGE_TITLES[currentRange];
 
-  document.getElementById("p-trend-chart").innerHTML = dailyKm.map(d => {
-    const heightPct = Math.round((d.km / maxKm) * 100);
-    const isToday = d.date === todayKey;
-    const dayLabel = new Date(d.date + "T12:00:00").toLocaleDateString("it-IT", { weekday: "short" });
+  const maxKm = Math.max(1, ...chart.map(c => c.km));
+  const todayIndex = currentRange === "week" ? chart.length - 1 : -1;
+
+  document.getElementById("p-trend-chart").innerHTML = chart.map((c, i) => {
+    const heightPct = Math.round((c.km / maxKm) * 100);
+    const isToday = i === todayIndex;
     return `
       <div class="p-trend-col">
-        <span class="p-trend-value">${d.km}</span>
+        <span class="p-trend-value">${c.km}</span>
         <div class="p-trend-bar ${isToday ? "p-trend-bar--today" : ""}" style="height:${heightPct}%"></div>
-        <span class="p-trend-day">${dayLabel}</span>
+        <span class="p-trend-day">${c.label}</span>
       </div>
     `;
   }).join("");
+}
+
+function renderRanking(kmPerVehicle) {
+  const container = document.getElementById("p-ranking-chart");
+  if (!kmPerVehicle.length) {
+    container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
+    return;
+  }
+  const maxKm = Math.max(1, ...kmPerVehicle.map(v => v.km));
+
+  container.innerHTML = kmPerVehicle.map(v => `
+    <div class="p-ranking-row">
+      <span class="p-ranking-name">${v.name}</span>
+      <div class="p-ranking-track"><div class="p-ranking-fill" style="width:${Math.round((v.km / maxKm) * 100)}%"></div></div>
+      <span class="p-ranking-value">${v.km} km</span>
+    </div>
+  `).join("");
 }
 
 function renderIdling(idling) {
@@ -83,11 +109,10 @@ function renderIdling(idling) {
     container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
     return;
   }
-
   container.innerHTML = idling.map(v => `
     <div class="p-idling-row">
       <span class="p-row-name">${v.name}</span>
-      <span class="p-row-detail">Oggi ${fmtDuration(v.todaySeconds)} · Settimana ${fmtDuration(v.weekSeconds)} · Mese ${fmtDuration(v.monthSeconds)}</span>
+      <span class="p-row-detail">${fmtDuration(v.idlingSeconds)}</span>
     </div>
   `).join("");
 }
@@ -99,7 +124,6 @@ function renderSpeeding(speeding, thresholdKmh) {
     container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
     return;
   }
-
   container.innerHTML = speeding.map(v => `
     <div class="p-speeding-row ${v.eventCount > 0 ? "p-speeding-row--flagged" : ""}">
       <span class="p-row-name">${v.name}</span>
@@ -110,27 +134,35 @@ function renderSpeeding(speeding, thresholdKmh) {
 
 async function refresh() {
   try {
-    const resp = await fetch("/api/performance");
+    const resp = await fetch("/api/performance?range=" + currentRange);
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    renderTotals(data.monthKm, data.weekKm);
-    renderTrend(data.dailyKm);
+    renderKpis(data.totals);
+    renderTrend(data.chart);
+    renderRanking(data.kmPerVehicle);
     renderIdling(data.idling);
     renderSpeeding(data.speeding, data.speedThresholdKmh);
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
-    document.getElementById("k-updated").textContent =
-      "Aggiornato alle " + fmtClock(new Date());
   } catch (err) {
     console.error("GRAUS Fleet Kiosk (performance) — errore aggiornamento:", err);
-    document.getElementById("k-updated").textContent =
-      "Errore di aggiornamento — nuovo tentativo tra poco";
   }
+}
+
+function initRangeTabs() {
+  document.querySelectorAll(".p-range-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentRange = btn.dataset.range;
+      document.querySelectorAll(".p-range-tab").forEach(b => b.classList.toggle("p-range-tab--active", b === btn));
+      refresh();
+    });
+  });
 }
 
 startClock();
 startTips();
+initRangeTabs();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);

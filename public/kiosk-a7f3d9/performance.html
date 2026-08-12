@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=3" />
-<link rel="stylesheet" href="/kiosk-a7f3d9/performance.css?v=1" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=5" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/performance.css?v=2" />
 </head>
 <body>
 
@@ -23,42 +23,58 @@
         <a href="/kiosk-a7f3d9/" class="k-nav-link">← Mappa</a>
         <a href="/kiosk-a7f3d9/soste.html" class="k-nav-link">Analisi soste →</a>
       </div>
-      <div class="k-header-right">
-        <div class="k-live">
-          <span class="k-live-dot"></span>
-          <span id="k-clock">--:--:--</span>
-        </div>
-        <div class="k-refresh-info">
-          <span id="k-updated">Aggiornamento in corso…</span>
-          <span class="k-countdown-sep">·</span>
-          <span id="k-countdown">--</span>
-        </div>
+      <div class="k-live">
+        <span class="k-live-dot"></span>
+        <span id="k-clock">--:--:--</span>
       </div>
+      <div class="k-mini-countdown" id="k-mini-countdown">--</div>
     </header>
 
     <main class="p-main">
 
-      <div class="p-top-row">
-        <div class="k-panel p-month-km">
-          <span class="p-big-number" id="p-month-km">–</span>
-          <span class="k-kpi-label">Km percorsi questo mese</span>
+      <div class="p-range-tabs" id="p-range-tabs">
+        <button class="p-range-tab p-range-tab--active" data-range="week">Settimana</button>
+        <button class="p-range-tab" data-range="month">Mese</button>
+        <button class="p-range-tab" data-range="year">Anno</button>
+      </div>
+
+      <div class="p-kpis">
+        <div class="k-panel p-kpi-block">
+          <span class="p-big-number" id="p-total-km">–</span>
+          <span class="k-kpi-label">Km totali</span>
         </div>
-        <div class="k-panel p-month-km">
-          <span class="p-big-number" id="p-week-km">–</span>
-          <span class="k-kpi-label">Km percorsi questa settimana</span>
+        <div class="k-panel p-kpi-block">
+          <span class="p-big-number" id="p-avg-km">–</span>
+          <span class="k-kpi-label">Km/giorno media</span>
+        </div>
+        <div class="k-panel p-kpi-block">
+          <span class="p-big-number" id="p-driving-hours">–</span>
+          <span class="k-kpi-label">Ore di guida</span>
+        </div>
+        <div class="k-panel p-kpi-block">
+          <span class="p-big-number" id="p-idling-hours">–</span>
+          <span class="k-kpi-label">Ore motore da fermo</span>
         </div>
       </div>
 
       <div class="p-mid-row">
         <div class="k-panel p-trend">
-          <h2 class="k-panel-title">Andamento settimanale</h2>
-          <p class="k-panel-sub">Km percorsi dalla flotta, ultimi 7 giorni</p>
+          <h2 class="k-panel-title" id="p-trend-title">Andamento</h2>
+          <p class="k-panel-sub">Km percorsi dalla flotta</p>
           <div id="p-trend-chart" class="p-trend-bars"></div>
         </div>
 
+        <div class="k-panel p-ranking">
+          <h2 class="k-panel-title">Km per veicolo</h2>
+          <p class="k-panel-sub">Nel periodo selezionato</p>
+          <div id="p-ranking-chart" class="p-ranking-bars"></div>
+        </div>
+      </div>
+
+      <div class="p-bottom-row">
         <div class="k-panel p-idling">
           <h2 class="k-panel-title">Motore acceso da fermo</h2>
-          <p class="k-panel-sub">Oggi · Settimana · Mese</p>
+          <p class="k-panel-sub">Per veicolo, nel periodo selezionato</p>
           <div id="p-idling-list" class="k-list k-list--scroll"></div>
         </div>
 
@@ -78,6 +94,6 @@
 
   </div>
 
-  <script src="/kiosk-a7f3d9/performance.js?v=1"></script>
+  <script src="/kiosk-a7f3d9/performance.js?v=2"></script>
 </body>
 </html>

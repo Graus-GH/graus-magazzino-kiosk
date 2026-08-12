@@ -3,11 +3,22 @@
  *
  * Detailed, per-vehicle breakdown of a day's stops: start/end time,
  * duration, and location — matched against your Geotab client Zones where
- * possible, reverse-geocoded to a street address otherwise.
+ * possible, reverse-geocoded to a street address otherwise. Also returns
+ * km driven and engine (driving) hours for the day.
+ *
+ * totalStopSeconds/stopCount EXCLUDE stops at the GRAUS home base — being
+ * parked at your own yard isn't a meaningful "stop" for these numbers.
+ * The stop LIST still shows home-base entries (marked 🏠), just not
+ * counted in the header totals.
  *
  * Optional query param: ?date=YYYY-MM-DD (Rome-local). Defaults to today.
- * "ongoing" stops only make sense for today — past days are always fully
- * resolved (midnight to midnight).
+ *
+ * Driver names (?key=...): OFF by default. Only included in the response
+ * if the request's `key` query param matches DRIVER_REVEAL_KEY (set in
+ * Vercel env vars) — this is checked server-side, so the raw API response
+ * never contains driver names unless the correct key was supplied. Never
+ * shown on the public kiosk URL, only when someone who knows the key adds
+ * it themselves.
  */
 
 const { geotabCall } = require("../lib/geotabClient");
@@ -17,6 +28,8 @@ const { reverseGeocode, resetRequestBudget } = require("../lib/geocoder");
 const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
 const { startOfDayRome, startOfDateStringRome, dateKeyRome } = require("../lib/timezone");
 const { cleanName } = require("../lib/cleanName");
+const { parseDurationSeconds } = require("../lib/duration");
+const { isHomeZone } = require("../lib/homeZone");
 
 const MIN_STOP_SECONDS = 120;
 const LOGRECORD_LIMIT_PER_DEVICE = 3000;
@@ -35,13 +48,15 @@ module.exports = async (req, res) => {
 
   try {
     const now = new Date();
-    const requestedDate = req.query && req.query.date; // "YYYY-MM-DD" or undefined
+    const requestedDate = req.query && req.query.date;
     const isToday = !requestedDate || requestedDate === dateKeyRome(now);
+    const revealDrivers = !!(req.query && req.query.key &&
+      process.env.DRIVER_REVEAL_KEY && req.query.key === process.env.DRIVER_REVEAL_KEY);
 
     const rangeStart = requestedDate ? startOfDateStringRome(requestedDate) : startOfDayRome(now);
     const rangeEnd = isToday
       ? now
-      : new Date(rangeStart.getTime() + 24 * 60 * 60 * 1000); // full day, past dates
+      : new Date(rangeStart.getTime() + 24 * 60 * 60 * 1000);
 
     const devices = await geotabCall("Get", {
       typeName: "Device",
@@ -51,6 +66,49 @@ module.exports = async (req, res) => {
     const statuses = isToday ? await geotabCall("Get", { typeName: "DeviceStatusInfo" }) : [];
     const statusByDevice = {};
     statuses.forEach(s => { statusByDevice[s.device.id] = s; });
+
+    // Trip data for the same window: distance, engine (driving) hours, and
+    // — only when unlocked — the driver of the most recent trip.
+    const trips = await geotabCall("Get", {
+      typeName: "Trip",
+      search: { fromDate: rangeStart.toISOString(), toDate: rangeEnd.toISOString() }
+    });
+    const tripStatsByDevice = {};
+    trips.forEach(t => {
+      const id = t.device.id;
+      if (!tripStatsByDevice[id]) tripStatsByDevice[id] = { distance: 0, drivingSeconds: 0, lastTrip: null };
+      tripStatsByDevice[id].distance += (t.distance || 0);
+      tripStatsByDevice[id].drivingSeconds += parseDurationSeconds(t.drivingDuration);
+      if (!tripStatsByDevice[id].lastTrip || new Date(t.stop) > new Date(tripStatsByDevice[id].lastTrip.stop)) {
+        tripStatsByDevice[id].lastTrip = t;
+      }
+    });
+
+    let driverNameByDeviceId = {};
+    if (revealDrivers) {
+      try {
+        const driverIds = [...new Set(
+          Object.values(tripStatsByDevice)
+            .map(t => t.lastTrip && t.lastTrip.driver && t.lastTrip.driver.id)
+            .filter(id => id && id !== "UnknownDriverId")
+        )];
+        if (driverIds.length) {
+          const users = await geotabCall("Get", { typeName: "User", search: {} });
+          const userById = {};
+          users.forEach(u => { userById[u.id] = u; });
+          Object.entries(tripStatsByDevice).forEach(([deviceId, stat]) => {
+            const drvId = stat.lastTrip && stat.lastTrip.driver && stat.lastTrip.driver.id;
+            const u = drvId && userById[drvId];
+            if (u) {
+              const full = `${u.firstName || ""} ${u.lastName || ""}`.trim();
+              driverNameByDeviceId[deviceId] = cleanName(full || u.name || "");
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Driver lookup failed:", err.message);
+      }
+    }
 
     const results = await Promise.all(devices.map(async device => {
       try {
@@ -86,8 +144,6 @@ module.exports = async (req, res) => {
         withLocation.sort((a, b) => a.start - b.start);
         const merged = mergeConsecutiveZoneStops(withLocation);
 
-        // Only "today" can have a genuinely ongoing stop — past days are
-        // always fully resolved by definition.
         const stopsWithLocation = merged.map(s => ({
           start: s.start.toISOString(),
           end: s.end.toISOString(),
@@ -102,12 +158,20 @@ module.exports = async (req, res) => {
 
         stopsWithLocation.sort((a, b) => new Date(b.start) - new Date(a.start));
 
+        const countedStops = stopsWithLocation.filter(s => !isHomeZone(s.zoneName));
+        const tripStat = tripStatsByDevice[device.id] || { distance: 0, drivingSeconds: 0 };
+
         return {
           id: device.id,
           name: cleanName(device.name),
           state: deviceState(statusByDevice[device.id], now),
-          stopCount: stopsWithLocation.length,
-          totalStopSeconds: stopsWithLocation.reduce((sum, s) => sum + s.durationSeconds, 0),
+          latitude: statusByDevice[device.id] ? statusByDevice[device.id].latitude : null,
+          longitude: statusByDevice[device.id] ? statusByDevice[device.id].longitude : null,
+          driverName: revealDrivers ? (driverNameByDeviceId[device.id] || null) : undefined,
+          distanceKm: Math.round(tripStat.distance * 10) / 10,
+          drivingSeconds: Math.round(tripStat.drivingSeconds),
+          stopCount: countedStops.length,
+          totalStopSeconds: countedStops.reduce((sum, s) => sum + s.durationSeconds, 0),
           stops: stopsWithLocation
         };
       } catch (err) {
@@ -116,6 +180,11 @@ module.exports = async (req, res) => {
           id: device.id,
           name: cleanName(device.name),
           state: deviceState(statusByDevice[device.id], now),
+          latitude: statusByDevice[device.id] ? statusByDevice[device.id].latitude : null,
+          longitude: statusByDevice[device.id] ? statusByDevice[device.id].longitude : null,
+          driverName: revealDrivers ? (driverNameByDeviceId[device.id] || null) : undefined,
+          distanceKm: 0,
+          drivingSeconds: 0,
           stopCount: 0,
           totalStopSeconds: 0,
           stops: []

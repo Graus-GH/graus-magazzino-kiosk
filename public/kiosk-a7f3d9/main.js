@@ -22,6 +22,7 @@ const TILE_LAYERS = {
 // (restaurants, hotels, shops) at close zoom, which is the whole point of
 // that close-up view.
 const SPOTLIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const SPOTLIGHT_SATELLITE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SPOTLIGHT_ZOOM = 16;
 
 let map;
@@ -32,6 +33,8 @@ let spotlightIndex = 0;
 let activeVehicleId = null;
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 let spotlightMap;
+let spotlightTileLayer;
+let spotlightIsSatellite = false;
 let spotlightMarker;
 let spotlightTimer = null;
 let resumeTimer = null;
@@ -86,7 +89,7 @@ function initSpotlightMap() {
     doubleClickZoom: true,
     touchZoom: true
   }).setView(CENTER, SPOTLIGHT_ZOOM);
-  L.tileLayer(SPOTLIGHT_TILE_URL, {
+  spotlightTileLayer = L.tileLayer(SPOTLIGHT_TILE_URL, {
     maxZoom: 19,
     attribution: "© OpenStreetMap"
   }).addTo(spotlightMap);
@@ -103,6 +106,17 @@ function initSpotlightMap() {
     const wrap = document.querySelector(".k-spotlight-map-wrap");
     wrap.classList.toggle("k-spotlight-map-wrap--expanded");
     setTimeout(() => spotlightMap.invalidateSize(), 260);
+  });
+
+  // Satellite toggle — only visible/usable while the map is expanded
+  document.getElementById("k-spotlight-satellite").addEventListener("click", (e) => {
+    spotlightIsSatellite = !spotlightIsSatellite;
+    e.currentTarget.classList.toggle("k-map-sat-btn--active", spotlightIsSatellite);
+
+    if (spotlightTileLayer) spotlightMap.removeLayer(spotlightTileLayer);
+    spotlightTileLayer = spotlightIsSatellite
+      ? L.tileLayer(SPOTLIGHT_SATELLITE_URL, { maxZoom: 19, attribution: "Tiles © Esri" }).addTo(spotlightMap)
+      : L.tileLayer(SPOTLIGHT_TILE_URL, { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(spotlightMap);
   });
 }
 
@@ -157,9 +171,20 @@ async function fetchReturnEtaMinutes(lat, lng) {
   return null;
 }
 
+function fmtCountdown(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
 function startClock() {
   const el = document.getElementById("k-clock");
-  setInterval(() => { el.textContent = fmtClock(new Date()); }, 1000);
+  const countdownEl = document.getElementById("k-mini-countdown");
+  setInterval(() => {
+    el.textContent = fmtClock(new Date());
+    countdownEl.textContent = "Aggiorna tra " + fmtCountdown(nextRefreshAt - Date.now());
+  }, 1000);
   el.textContent = fmtClock(new Date());
 }
 
@@ -180,6 +205,11 @@ function renderKpis(vehicles) {
     ? withStops.reduce((sum, v) => sum + v.todayStopSeconds, 0) / withStops.length
     : 0;
   document.getElementById("kpi-avg-stop").textContent = fmtDuration(avgStopSeconds);
+
+  const totalStopSeconds = vehicles.reduce((sum, v) => sum + (v.todayStopSeconds || 0), 0);
+  const totalStopCount = vehicles.reduce((sum, v) => sum + (v.todayStopCount || 0), 0);
+  document.getElementById("kpi-stop-duration").textContent = fmtDuration(totalStopSeconds);
+  document.getElementById("kpi-stop-count").textContent = totalStopCount;
 }
 
 function statusColor(state) {
@@ -398,6 +428,8 @@ async function refresh() {
       spotlightIndex = spotlightIndex % withPosition.length;
       renderSpotlight(withPosition[spotlightIndex]);
     }
+
+    nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
   } catch (err) {
     console.error("GRAUS Fleet Kiosk — errore aggiornamento:", err);
   }

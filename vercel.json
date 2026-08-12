@@ -2,6 +2,6 @@
   "functions": {
     "api/fleet.js": { "maxDuration": 30 },
     "api/stops.js": { "maxDuration": 45 },
-    "api/performance.js": { "maxDuration": 45 }
+    "api/performance.js": { "maxDuration": 60 }
   }
 }
