@@ -6,13 +6,15 @@
 <meta name="robots" content="noindex, nofollow">
 <title>GRAUS Fleet — Cruscotto Magazzino</title>
 
+<script src="/kiosk-a7f3d9/layoutMode.js?v=1"></script>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=5" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=8" />
 </head>
 <body>
 
@@ -36,77 +38,73 @@
 
     <main class="k-main">
 
-      <section class="k-map-section">
-        <div id="k-map"></div>
-
-        <div class="k-tile-toggle">
-          <button id="tile-voyager" class="k-tile-btn k-tile-btn--active">Voyager</button>
-          <button id="tile-osm" class="k-tile-btn">OpenStreetMap</button>
+      <div class="k-kpis">
+        <div class="k-kpi">
+          <span class="k-kpi-value" id="kpi-total">–</span>
+          <span class="k-kpi-label">Veicoli</span>
         </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value k-kpi-value--moving" id="kpi-moving">–</span>
+          <span class="k-kpi-label">In movimento</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stopped">–</span>
+          <span class="k-kpi-label">Fermi</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value k-kpi-value--offline" id="kpi-offline">–</span>
+          <span class="k-kpi-label">Offline</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value" id="kpi-km">–</span>
+          <span class="k-kpi-label">Km oggi</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value" id="kpi-avg-stop">–</span>
+          <span class="k-kpi-label">Sosta media</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stop-duration">–</span>
+          <span class="k-kpi-label">Durata soste oggi</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stop-count">–</span>
+          <span class="k-kpi-label">Soste oggi</span>
+        </div>
+        <div class="k-kpi" title="Un evento si attiva quando un veicolo supera il limite di velocità di almeno il 20% per una durata pari o superiore a 5 secondi (regola Geotab)">
+          <span class="k-kpi-value k-kpi-value--stopped" id="kpi-speeding">–</span>
+          <span class="k-kpi-label">Eccessi oggi</span>
+        </div>
+      </div>
 
-        <div class="k-map-legend">
-          <span class="k-legend-item"><i class="k-dot k-dot--moving"></i>In movimento</span>
-          <span class="k-legend-item"><i class="k-dot k-dot--stopped"></i>Fermo</span>
-          <span class="k-legend-item"><i class="k-dot k-dot--offline"></i>Offline</span>
+      <section class="k-quadrant k-quadrant--map-big">
+        <div class="k-map-section">
+          <div id="k-map"></div>
+
+          <div class="k-tile-toggle">
+            <button id="tile-voyager" class="k-tile-btn k-tile-btn--active">Voyager</button>
+            <button id="tile-osm" class="k-tile-btn">OpenStreetMap</button>
+          </div>
+
+          <div class="k-map-legend">
+            <span class="k-legend-item"><i class="k-dot k-dot--moving"></i>In movimento</span>
+            <span class="k-legend-item"><i class="k-dot k-dot--stopped"></i>Fermo</span>
+            <span class="k-legend-item"><i class="k-dot k-dot--offline"></i>Offline</span>
+          </div>
         </div>
       </section>
 
-      <aside class="k-spotlight-column">
-        <div class="k-panel k-spotlight" id="k-spotlight">
-          <h2 class="k-panel-title">In evidenza</h2>
-          <p class="k-panel-sub">Rotazione automatica ogni 15 secondi</p>
+      <section class="k-quadrant k-quadrant--map-detail">
+        <div class="k-panel k-panel--grow">
           <div class="k-spotlight-map-wrap">
             <div id="k-spotlight-map" class="k-spotlight-map"></div>
             <button id="k-spotlight-satellite" class="k-map-icon-btn k-map-sat-btn" title="Satellite">🛰️</button>
             <button id="k-spotlight-expand" class="k-map-icon-btn k-map-expand-btn" title="Ingrandisci">⤢</button>
           </div>
-          <div id="k-spotlight-body">
-            <p class="k-empty">Caricamento…</p>
-          </div>
         </div>
-      </aside>
+      </section>
 
-      <aside class="k-rail">
-
-        <div class="k-kpis">
-          <div class="k-kpi">
-            <span class="k-kpi-value" id="kpi-total">–</span>
-            <span class="k-kpi-label">Veicoli</span>
-          </div>
-          <div class="k-kpi">
-            <span class="k-kpi-value k-kpi-value--moving" id="kpi-moving">–</span>
-            <span class="k-kpi-label">In movimento</span>
-          </div>
-          <div class="k-kpi">
-            <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stopped">–</span>
-            <span class="k-kpi-label">Fermi</span>
-          </div>
-          <div class="k-kpi">
-            <span class="k-kpi-value k-kpi-value--offline" id="kpi-offline">–</span>
-            <span class="k-kpi-label">Offline</span>
-          </div>
-          <div class="k-kpi">
-            <span class="k-kpi-value" id="kpi-km">–</span>
-            <span class="k-kpi-label">Km oggi</span>
-          </div>
-          <div class="k-kpi">
-            <span class="k-kpi-value" id="kpi-avg-stop">–</span>
-            <span class="k-kpi-label">Sosta media</span>
-          </div>
-          <div class="k-kpi">
-            <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stop-duration">–</span>
-            <span class="k-kpi-label">Durata soste oggi</span>
-          </div>
-          <div class="k-kpi">
-            <span class="k-kpi-value k-kpi-value--stopped" id="kpi-stop-count">–</span>
-            <span class="k-kpi-label">Soste oggi</span>
-          </div>
-          <div class="k-kpi" title="Un evento si attiva quando un veicolo supera il limite di velocità di almeno il 20% per una durata pari o superiore a 5 secondi (regola Geotab)">
-            <span class="k-kpi-value k-kpi-value--stopped" id="kpi-speeding">–</span>
-            <span class="k-kpi-label">Eccessi oggi</span>
-          </div>
-        </div>
-
+      <section class="k-quadrant k-quadrant--roster">
         <div class="k-panel k-panel--grow">
           <h2 class="k-panel-title">Stato flotta</h2>
           <p class="k-panel-sub">Tutti i veicoli, in tempo reale</p>
@@ -114,14 +112,21 @@
             <p class="k-empty">Caricamento…</p>
           </div>
         </div>
+      </section>
 
-      </aside>
+      <section class="k-quadrant k-quadrant--detail-data">
+        <div class="k-panel k-panel--grow">
+          <div id="k-spotlight-body">
+            <p class="k-empty">Caricamento…</p>
+          </div>
+        </div>
+      </section>
 
     </main>
 
   </div>
 
-  <script src="/kiosk-a7f3d9/keyPersist.js?v=1"></script>
-  <script src="/kiosk-a7f3d9/main.js?v=6"></script>
+  <script src="/kiosk-a7f3d9/keyPersist.js?v=2"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=7"></script>
 </body>
 </html>

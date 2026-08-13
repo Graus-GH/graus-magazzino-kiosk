@@ -188,13 +188,6 @@ async function fetchReturnEtaMinutes(lat, lng) {
   return null;
 }
 
-function fmtCountdown(ms) {
-  const s = Math.max(0, Math.round(ms / 1000));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${String(r).padStart(2, "0")}`;
-}
-
 function startClock() {
   const el = document.getElementById("k-clock");
   const countdownEl = document.getElementById("k-mini-countdown");

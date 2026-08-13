@@ -226,3 +226,22 @@
   font-size: 22px;
   flex-shrink: 0;
 }
+
+/* ---------- Verticale (TV in portrait) ----------
+ * Stack the two side-by-side row pairs and let the page scroll vertically
+ * instead of squeezing everything into one screen height (see
+ * layoutMode.js / style.css for how html.k-portrait gets applied).
+ */
+
+html.k-portrait .p-main {
+  overflow-y: auto;
+}
+
+html.k-portrait .p-kpis {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+html.k-portrait .p-mid-row,
+html.k-portrait .p-bottom-row {
+  flex-direction: column;
+}

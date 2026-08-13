@@ -211,3 +211,26 @@
 .s-map-link:hover {
   opacity: 1;
 }
+
+/* ---------- Verticale (TV in portrait) ----------
+ * The horizontal-scrolling row of vehicle cards doesn't work on a
+ * non-interactive display, so stack them in one column instead and let the
+ * page itself scroll vertically (see layoutMode.js / style.css for how
+ * html.k-portrait gets applied).
+ */
+
+html.k-portrait .s-main {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+html.k-portrait .s-columns {
+  flex-direction: column;
+  height: auto;
+  overflow-x: hidden;
+}
+
+html.k-portrait .s-vehicle-card {
+  min-width: 0;
+  max-height: none;
+}
