@@ -32,7 +32,7 @@ const { parseDurationSeconds } = require("../lib/duration");
 const { isHomeZone } = require("../lib/homeZone");
 
 const MIN_STOP_SECONDS = 120;
-const LOGRECORD_LIMIT_PER_DEVICE = 3000;
+const LOGRECORD_LIMIT_PER_DEVICE = 25000; // was 3000 — too low, was silently truncating busy driving days
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 
 function deviceState(status, now) {
@@ -123,6 +123,9 @@ module.exports = async (req, res) => {
             },
             resultsLimit: LOGRECORD_LIMIT_PER_DEVICE
           });
+          if (records.length === LOGRECORD_LIMIT_PER_DEVICE) {
+            console.error("LogRecord result possibly truncated (hit limit) for", device.name, "on", requestedDate || "today");
+          }
         } catch (err) {
           console.error("LogRecord fetch failed for device", device.name, err.message);
         }

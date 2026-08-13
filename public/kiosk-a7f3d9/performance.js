@@ -129,7 +129,7 @@ function renderSpeeding(speeding, available, ruleName) {
     return;
   }
 
-  sub.textContent = "Superamento limiti stradali — regola Geotab";
+  sub.textContent = "Attivato quando si supera il limite stradale di almeno il 20% per 5+ secondi (regola Geotab)";
 
   if (!speeding.length) {
     container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';

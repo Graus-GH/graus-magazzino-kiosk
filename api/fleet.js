@@ -22,7 +22,7 @@ const { getSpeedingRuleId } = require("../lib/speedingRule");
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
-const LOGRECORD_LIMIT_PER_DEVICE = 3000;
+const LOGRECORD_LIMIT_PER_DEVICE = 25000; // was 3000 — too low, was silently truncating busy driving days
 
 module.exports = async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -85,6 +85,9 @@ module.exports = async (req, res) => {
           },
           resultsLimit: LOGRECORD_LIMIT_PER_DEVICE
         });
+        if (records.length === LOGRECORD_LIMIT_PER_DEVICE) {
+          console.error("LogRecord result possibly truncated (hit limit) for", device.name);
+        }
         logRecordsByDevice[device.id] = records;
       } catch (err) {
         console.error("LogRecord fetch failed for device", device.id, err.message);
