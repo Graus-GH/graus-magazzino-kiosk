@@ -180,27 +180,6 @@
   text-decoration: none;
 }
 
-.s-zone-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(46, 143, 224, 0.18);
-  color: var(--graus-blue);
-  border-radius: 6px;
-  padding: 1px 8px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.s-zone-badge--home {
-  background: rgba(52, 211, 153, 0.18);
-  color: var(--good);
-}
-
-.s-stop-address {
-  color: var(--text-muted);
-}
-
 .s-map-link {
   display: inline-block;
   margin-left: 6px;

@@ -14,6 +14,7 @@ const driverKey = new URLSearchParams(window.location.search).get("key");
 // seen in the Analisi Soste zone matches. Verify/adjust if not precise.
 const HOME_BASE = { lat: 46.6305, lng: 11.8956 };
 const HOME_BASE_RADIUS_M = 300; // within this distance, just say "In sede"
+const HOME_ZONE_MATCH = "graus"; // case-insensitive substring match on zone name, same as Analisi Soste
 
 const TILE_LAYERS = {
   voyager: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
@@ -53,9 +54,10 @@ function initMap(style = "voyager") {
   map.on("zoomend moveend", declutterLabels);
 }
 
-// Hides overlapping vehicle-name labels (keeping the colored shape always
-// visible) by checking real on-screen bounding-box collisions — no plugin,
-// just measuring rendered label positions after each map move/zoom.
+// Fans out vehicles parked right on top of each other (same yard/lot — their
+// dots would otherwise stack into an indistinguishable blob) and hides
+// vehicle-name labels that still collide after that, keeping the colored
+// shape always visible — no plugin, just on-screen bounding-box math.
 function declutterLabels() {
   if (!map) return;
 
@@ -69,15 +71,40 @@ function declutterLabels() {
   // length — much more so once a driver name is appended (?key=... reveal)
   // — and a fixed width either misses real overlaps for long labels or
   // hides short ones unnecessarily.
+  const CLUSTER_RADIUS_PX = 24; // markers this close together get fanned out
+  const SPREAD_RADIUS_PX = 14; // how far apart they land once fanned out
   const CHAR_WIDTH_PX = 7.2; // rough average glyph width for the label's font/size
   const LABEL_PADDING_PX = 22; // the label pill's own left+right padding
   const LABEL_HEIGHT_PX = 26;
 
-  const entries = Object.entries(markersByDevice).map(([id, marker]) => ({
-    id,
-    marker,
-    point: map.latLngToContainerPoint(marker.getLatLng())
-  }));
+  // Always computed from the vehicle's TRUE lat/lng (not the marker's
+  // current, possibly already-fanned-out position) so repeated calls (this
+  // runs on every zoom/pan, not just on refresh) don't make markers drift
+  // further and further from their real spot over time.
+  const entries = Object.entries(markersByDevice).map(([id, marker]) => {
+    const v = currentVehicles.find(cv => String(cv.id) === id);
+    const truePoint = map.latLngToContainerPoint([v.latitude, v.longitude]);
+    return { id, marker, truePoint, point: truePoint };
+  });
+
+  const assigned = new Set();
+  entries.forEach(e => {
+    if (assigned.has(e.id)) return;
+    const group = entries.filter(o => !assigned.has(o.id) &&
+      Math.hypot(o.truePoint.x - e.truePoint.x, o.truePoint.y - e.truePoint.y) < CLUSTER_RADIUS_PX);
+    group.forEach(o => assigned.add(o.id));
+
+    if (group.length > 1) {
+      const cx = group.reduce((s, g) => s + g.truePoint.x, 0) / group.length;
+      const cy = group.reduce((s, g) => s + g.truePoint.y, 0) / group.length;
+      group.sort((a, b) => a.id.localeCompare(b.id)); // stable order across refreshes
+      group.forEach((g, i) => {
+        const angle = (2 * Math.PI * i) / group.length;
+        g.point = L.point(cx + SPREAD_RADIUS_PX * Math.cos(angle), cy + SPREAD_RADIUS_PX * Math.sin(angle));
+        g.marker.setLatLng(map.containerPointToLatLng(g.point));
+      });
+    }
+  });
 
   // The active/spotlighted vehicle's label always wins any collision
   entries.sort((a, b) => (a.id === String(activeVehicleId) ? -1 : b.id === String(activeVehicleId) ? 1 : 0));
@@ -316,6 +343,20 @@ function renderRoster(vehicles) {
   }).join("");
 }
 
+// Same treatment as locationHtml() in soste.js: a colored zone badge for a
+// Geotab zone match (green if it's the home base), plain muted text for a
+// reverse-geocoded address — instead of just showing raw text.
+function vehicleLocationBadge(vehicle) {
+  if (vehicle.zoneName) {
+    const isHome = vehicle.zoneName.toLowerCase().includes(HOME_ZONE_MATCH);
+    return isHome
+      ? `<span class="s-zone-badge s-zone-badge--home">🏠 ${vehicle.zoneName}</span>`
+      : `<span class="s-zone-badge">${vehicle.zoneName}</span>`;
+  }
+  if (vehicle.address) return `<span class="s-stop-address">${vehicle.address}</span>`;
+  return vehicle.location || "";
+}
+
 function renderSpotlight(vehicle) {
   const body = document.getElementById("k-spotlight-body");
   if (!vehicle) {
@@ -332,7 +373,7 @@ function renderSpotlight(vehicle) {
     : "–";
 
   const locationLine = (vehicle.state === "stopped" && vehicle.location)
-    ? `<div class="k-spotlight-location">📍 ${vehicle.location}</div>`
+    ? `<div class="k-spotlight-location">📍 ${vehicleLocationBadge(vehicle)}</div>`
     : "";
 
   body.innerHTML = `

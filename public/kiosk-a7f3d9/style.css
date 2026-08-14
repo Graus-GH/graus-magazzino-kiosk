@@ -87,6 +87,27 @@ html, body {
   vertical-align: middle;
 }
 
+.s-zone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(46, 143, 224, 0.18);
+  color: var(--graus-blue);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.s-zone-badge--home {
+  background: rgba(52, 211, 153, 0.18);
+  color: var(--good);
+}
+
+.s-stop-address {
+  color: var(--text-muted);
+}
+
 .s-date-picker {
   font-family: var(--font-mono);
   font-size: 14px;
@@ -182,6 +203,16 @@ html, body {
 .k-quadrant--detail-data { grid-column: 2; grid-row: 2; }
 .k-kpis { grid-column: 3; grid-row: 1; }
 .k-quadrant--roster { grid-column: 3; grid-row: 2; }
+
+/* No padding around the detail map — it should fill this panel edge to
+   edge instead of floating inside a padded card like the other panels. */
+.k-quadrant--map-detail .k-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.k-quadrant--map-detail .k-spotlight-map {
+  border-radius: 16px;
+}
 
 .k-map-section {
   flex: 1;
@@ -389,10 +420,9 @@ html, body {
 
 .k-spotlight-map-wrap {
   position: relative;
-  width: 280px;
-  height: 280px;
-  margin: 0 auto;
-  flex-shrink: 0;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
   transition: width 0.25s ease, height 0.25s ease;
 }
 
@@ -461,10 +491,18 @@ html, body {
 .k-spotlight-status--offline { background: rgba(100,116,139,0.25); color: var(--offline); }
 
 .k-spotlight-location {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 10px 0 12px 0;
+}
+
+.k-spotlight-location .s-zone-badge,
+.k-spotlight-location .s-stop-address {
+  font-size: 13px;
 }
 
 .k-spotlight-stats {
@@ -742,6 +780,7 @@ html.k-portrait .k-quadrant--map-detail {
 html.k-portrait .k-spotlight-map-wrap {
   width: 100%;
   height: auto;
+  aspect-ratio: auto;
   flex: 1;
   min-height: 0;
   margin: 0;

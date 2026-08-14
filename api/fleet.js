@@ -124,19 +124,23 @@ module.exports = async (req, res) => {
 
       // Where a stopped vehicle actually is: its matched zone if there is
       // one (even the home base — this is live status, not a metric), or a
-      // reverse-geocoded address otherwise.
-      let location = null;
+      // reverse-geocoded address otherwise. Kept as separate zoneName/address
+      // fields (like /api/stops) so the UI can badge a zone match the same
+      // way Analisi Soste does, instead of just showing plain text.
+      let zoneName = null;
+      let address = null;
       if (state === "stopped" && status) {
         if (currentStop && currentStop.zoneName) {
-          location = currentStop.zoneName;
+          zoneName = currentStop.zoneName;
         } else {
           try {
-            location = await reverseGeocode(status.latitude, status.longitude);
+            address = await reverseGeocode(status.latitude, status.longitude);
           } catch (err) {
             console.error("Reverse geocode failed for device", device.name, err.message);
           }
         }
       }
+      const location = zoneName || address;
 
       return {
         id: device.id,
@@ -149,6 +153,8 @@ module.exports = async (req, res) => {
         lastUpdate: status ? status.dateTime : null,
         state,
         location,
+        zoneName,
+        address,
         stopDurationMs: currentStop ? currentStop.durationSeconds * 1000 : null,
         todayStopSeconds: Math.round(todayStopSeconds),
         todayStopCount,
