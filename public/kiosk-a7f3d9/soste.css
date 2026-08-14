@@ -213,24 +213,30 @@
 }
 
 /* ---------- Verticale (TV in portrait) ----------
- * The horizontal-scrolling row of vehicle cards doesn't work on a
- * non-interactive display, so stack them in one column instead and let the
- * page itself scroll vertically (see layoutMode.js / style.css for how
- * html.k-portrait gets applied).
+ * Shown on a non-interactive TV — nobody can scroll, so every vehicle has
+ * to fit on the one screen at once instead of scrolling (horizontally,
+ * like the landscape default, or vertically). 4-per-row grid, wrapping to
+ * as many rows as needed; each card's own stop list still clips internally
+ * if it has more stops than fit — an acceptable trade-off for a glanceable
+ * TV view (see layoutMode.js / style.css for how html.k-portrait gets
+ * applied).
  */
 
 html.k-portrait .s-main {
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 html.k-portrait .s-columns {
-  flex-direction: column;
-  height: auto;
-  overflow-x: hidden;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 14px;
+  height: 100%;
+  overflow: hidden;
 }
 
 html.k-portrait .s-vehicle-card {
   min-width: 0;
   max-height: none;
+  overflow: hidden;
 }

@@ -64,8 +64,13 @@ function declutterLabels() {
   // math, always correct immediately) instead of measuring rendered label
   // elements via getBoundingClientRect — that depended on the browser
   // having finished layout/animation at the exact moment we checked, which
-  // proved unreliable.
-  const LABEL_WIDTH_PX = 130; // conservative estimate covering longer vehicle names
+  // proved unreliable. Width is ESTIMATED from each label's own text length
+  // (not a flat constant) rather than measured, since labels vary a lot in
+  // length — much more so once a driver name is appended (?key=... reveal)
+  // — and a fixed width either misses real overlaps for long labels or
+  // hides short ones unnecessarily.
+  const CHAR_WIDTH_PX = 7.2; // rough average glyph width for the label's font/size
+  const LABEL_PADDING_PX = 22; // the label pill's own left+right padding
   const LABEL_HEIGHT_PX = 26;
 
   const entries = Object.entries(markersByDevice).map(([id, marker]) => ({
@@ -77,22 +82,24 @@ function declutterLabels() {
   // The active/spotlighted vehicle's label always wins any collision
   entries.sort((a, b) => (a.id === String(activeVehicleId) ? -1 : b.id === String(activeVehicleId) ? 1 : 0));
 
-  const shownPoints = [];
+  const shown = [];
   entries.forEach(({ marker, point }) => {
     const el = marker.getElement();
     if (!el) return;
     const nameEl = el.querySelector(".k-marker-name");
     if (!nameEl) return;
 
-    const overlaps = shownPoints.some(p =>
-      Math.abs(p.x - point.x) < LABEL_WIDTH_PX && Math.abs(p.y - point.y) < LABEL_HEIGHT_PX
+    const width = nameEl.textContent.length * CHAR_WIDTH_PX + LABEL_PADDING_PX;
+
+    const overlaps = shown.some(s =>
+      Math.abs(s.point.x - point.x) < (s.width + width) / 2 && Math.abs(s.point.y - point.y) < LABEL_HEIGHT_PX
     );
 
     if (overlaps) {
       nameEl.style.display = "none";
     } else {
       nameEl.style.display = "";
-      shownPoints.push(point);
+      shown.push({ point, width });
     }
   });
 }
@@ -231,15 +238,16 @@ function statusColor(state) {
 function buildMarkerIcon(v, isActive) {
   const bearing = v.bearing || 0;
   const rotateStyle = v.state === "moving" ? `style="transform:rotate(${bearing}deg);"` : "";
+  const labelText = v.driverName ? `${v.name} · ${v.driverName}` : v.name;
   const html = `
     <div class="k-marker ${isActive ? "k-marker--active" : ""}">
       <div class="k-marker-rotate" ${rotateStyle}>
         <div class="k-marker-shape k-marker-shape--${v.state}"></div>
       </div>
-      <span class="k-marker-name">${v.name}</span>
+      <span class="k-marker-name">${labelText}</span>
     </div>
   `;
-  return L.divIcon({ className: "", html, iconSize: [220, 24], iconAnchor: [8, 12] });
+  return L.divIcon({ className: "", html, iconSize: [320, 24], iconAnchor: [8, 12] });
 }
 
 function renderMap(vehicles) {
@@ -290,10 +298,10 @@ function renderRoster(vehicles) {
   const sorted = vehicles.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   container.innerHTML = sorted.map(v => {
-    const label = v.state === "moving" ? "In movimento"
-                : v.state === "stopped"
-                  ? `Fermo da ${fmtDuration((v.stopDurationMs || 0) / 1000)}${v.location ? " · " + v.location : ""}`
-                  : "Offline";
+    const statusText = v.state === "moving" ? "In movimento" : v.state === "stopped" ? "Fermo" : "Offline";
+    const detail = v.state === "stopped"
+      ? `${fmtDuration((v.stopDurationMs || 0) / 1000)}${v.location ? " · " + v.location : ""}`
+      : "";
     const isActive = v.id === activeVehicleId;
     const clickable = v.latitude && v.longitude;
     return `
@@ -301,7 +309,8 @@ function renderRoster(vehicles) {
            ${clickable ? `onclick="selectVehicleManually('${v.id}')"` : ""}>
         ${rosterIconHtml(v)}
         <span class="k-roster-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
-        <span class="k-roster-detail">${label}</span>
+        <span class="k-spotlight-status k-spotlight-status--${v.state}">${statusText}</span>
+        <span class="k-roster-detail">${detail}</span>
       </div>
     `;
   }).join("");
