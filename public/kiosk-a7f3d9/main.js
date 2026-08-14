@@ -54,10 +54,9 @@ function initMap(style = "voyager") {
   map.on("zoomend moveend", declutterLabels);
 }
 
-// Fans out vehicles parked right on top of each other (same yard/lot — their
-// dots would otherwise stack into an indistinguishable blob) and hides
-// vehicle-name labels that still collide after that, keeping the colored
-// shape always visible — no plugin, just on-screen bounding-box math.
+// Hides overlapping vehicle-name labels (keeping the colored shape always
+// visible) by checking real on-screen bounding-box collisions — no plugin,
+// just on-screen bounding-box math.
 function declutterLabels() {
   if (!map) return;
 
@@ -71,90 +70,37 @@ function declutterLabels() {
   // length — much more so once a driver name is appended (?key=... reveal)
   // — and a fixed width either misses real overlaps for long labels or
   // hides short ones unnecessarily.
-  const CLUSTER_RADIUS_PX = 24; // markers this close together get fanned out
-  const SPREAD_RADIUS_PX = 14; // how far apart they land once fanned out
-  const LABEL_ROW_PX = 26; // vertical spacing between staggered label rows within a cluster
   const CHAR_WIDTH_PX = 7.2; // rough average glyph width for the label's font/size
   const LABEL_PADDING_PX = 22; // the label pill's own left+right padding
-  const LABEL_HEIGHT_PX = 22;
+  const LABEL_HEIGHT_PX = 26;
 
-  // Always computed from the vehicle's TRUE lat/lng (not the marker's
-  // current, possibly already-fanned-out position) so repeated calls (this
-  // runs on every zoom/pan, not just on refresh) don't make markers drift
-  // further and further from their real spot over time.
-  const entries = Object.entries(markersByDevice).map(([id, marker]) => {
-    const v = currentVehicles.find(cv => String(cv.id) === id);
-    const truePoint = map.latLngToContainerPoint([v.latitude, v.longitude]);
-    return { id, marker, truePoint, point: truePoint, labelOffsetY: 0 };
-  });
-
-  const assigned = new Set();
-  entries.forEach(e => {
-    if (assigned.has(e.id)) return;
-    const group = entries.filter(o => !assigned.has(o.id) &&
-      Math.hypot(o.truePoint.x - e.truePoint.x, o.truePoint.y - e.truePoint.y) < CLUSTER_RADIUS_PX);
-    group.forEach(o => assigned.add(o.id));
-
-    if (group.length > 1) {
-      const cx = group.reduce((s, g) => s + g.truePoint.x, 0) / group.length;
-      const cy = group.reduce((s, g) => s + g.truePoint.y, 0) / group.length;
-      group.sort((a, b) => a.id.localeCompare(b.id)); // stable order across refreshes
-      group.forEach((g, i) => {
-        const angle = (2 * Math.PI * i) / group.length;
-        g.point = L.point(cx + SPREAD_RADIUS_PX * Math.cos(angle), cy + SPREAD_RADIUS_PX * Math.sin(angle));
-        g.marker.setLatLng(map.containerPointToLatLng(g.point));
-        // Long labels (especially with a driver name appended) are almost
-        // always wider than any reasonable horizontal spread, so on their
-        // own the dot-fanning above still leaves every label competing for
-        // the same row. Staggering them onto different rows lets more than
-        // just one survive the collision check below.
-        g.labelOffsetY = (i - (group.length - 1) / 2) * LABEL_ROW_PX;
-      });
-    }
-  });
+  const entries = Object.entries(markersByDevice).map(([id, marker]) => ({
+    id,
+    marker,
+    point: map.latLngToContainerPoint(marker.getLatLng())
+  }));
 
   // The active/spotlighted vehicle's label always wins any collision
   entries.sort((a, b) => (a.id === String(activeVehicleId) ? -1 : b.id === String(activeVehicleId) ? 1 : 0));
 
   const shown = [];
-  entries.forEach(({ marker, point, labelOffsetY }) => {
+  entries.forEach(({ marker, point }) => {
     const el = marker.getElement();
     if (!el) return;
     const nameEl = el.querySelector(".k-marker-name");
     if (!nameEl) return;
 
-    // Both are absolutely positioned (see style.css) with a fixed "top: 12px"
-    // baseline (the dot's vertical center) that this offset shifts from —
-    // NOT a margin on a flex sibling, which fed back into the row's own
-    // computed height and made the connector land in the wrong place.
-    nameEl.style.top = (12 + labelOffsetY) + "px";
-
-    // A shifted label gets a small vertical dash connecting it back to the
-    // row its dot sits on, so it's still obvious which vehicle it belongs
-    // to once spread away from that row.
-    const leaderEl = el.querySelector(".k-marker-leader");
-    if (leaderEl) {
-      leaderEl.style.height = Math.abs(labelOffsetY) + "px";
-      leaderEl.style.top = (12 + Math.min(0, labelOffsetY)) + "px";
-    }
-
-    const labelPoint = { x: point.x, y: point.y + labelOffsetY };
     const width = nameEl.textContent.length * CHAR_WIDTH_PX + LABEL_PADDING_PX;
 
     const overlaps = shown.some(s =>
-      Math.abs(s.point.x - labelPoint.x) < (s.width + width) / 2 && Math.abs(s.point.y - labelPoint.y) < LABEL_HEIGHT_PX
+      Math.abs(s.point.x - point.x) < (s.width + width) / 2 && Math.abs(s.point.y - point.y) < LABEL_HEIGHT_PX
     );
 
     if (overlaps) {
-      // Hide the leader along with the label — otherwise a hidden vehicle's
-      // own dash keeps rendering, and several of those stacked so close
-      // together in a cluster read as one long, disconnected line.
       nameEl.style.display = "none";
-      if (leaderEl) leaderEl.style.display = "none";
     } else {
       nameEl.style.display = "";
-      if (leaderEl) leaderEl.style.display = "";
-      shown.push({ point: labelPoint, width });
+      shown.push({ point, width });
     }
   });
 }
@@ -299,7 +245,6 @@ function buildMarkerIcon(v, isActive) {
       <div class="k-marker-rotate" ${rotateStyle}>
         <div class="k-marker-shape k-marker-shape--${v.state}"></div>
       </div>
-      <div class="k-marker-leader"></div>
       <span class="k-marker-name">${labelText}</span>
     </div>
   `;

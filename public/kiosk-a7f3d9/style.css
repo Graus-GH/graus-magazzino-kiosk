@@ -654,7 +654,6 @@ html, body {
 }
 
 .k-marker {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -713,24 +712,7 @@ html, body {
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
 }
 
-/* Absolutely positioned (not a normal flex sibling) so a shifted label's
-   own size/margins can never feed back into where this "fixed" anchor
-   point is — that feedback loop is exactly what made the connector land
-   in the wrong place before. */
-.k-marker-leader {
-  position: absolute;
-  left: 20px;
-  top: 12px;
-  width: 2px;
-  height: 0;
-  background: rgba(11, 15, 22, 0.85);
-}
-
 .k-marker-name {
-  position: absolute;
-  left: 23px;
-  top: 12px;
-  transform: translateY(-50%);
   background: rgba(11, 15, 22, 0.85);
   color: var(--text-primary);
   font-family: var(--font-display);
