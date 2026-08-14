@@ -74,7 +74,6 @@ function declutterLabels() {
   const CLUSTER_RADIUS_PX = 24; // markers this close together get fanned out
   const SPREAD_RADIUS_PX = 14; // how far apart they land once fanned out
   const LABEL_ROW_PX = 26; // vertical spacing between staggered label rows within a cluster
-  const LEADER_DX_PX = 14; // horizontal reach of the little dash connecting a shifted label back to its dot
   const CHAR_WIDTH_PX = 7.2; // rough average glyph width for the label's font/size
   const LABEL_PADDING_PX = 22; // the label pill's own left+right padding
   const LABEL_HEIGHT_PX = 22;
@@ -126,20 +125,16 @@ function declutterLabels() {
 
     nameEl.style.marginTop = labelOffsetY + "px";
 
-    // A shifted label gets a small dash pointing back at its actual dot, so
-    // it's still obvious which vehicle it belongs to even once spread well
-    // away from the row the dot itself sits on.
+    // A shifted label gets a small vertical dash connecting it back to the
+    // row its dot sits on, so it's still obvious which vehicle it belongs
+    // to once spread away from that row. Plain height + margin (no
+    // rotation) — a rotated bar looked connected in isolation but doesn't
+    // actually follow the flex layout's real flow, so it landed nowhere
+    // near the label once actually rendered.
     const leaderEl = el.querySelector(".k-marker-leader");
     if (leaderEl) {
-      if (labelOffsetY !== 0) {
-        const length = Math.sqrt(LEADER_DX_PX * LEADER_DX_PX + labelOffsetY * labelOffsetY);
-        const angle = Math.atan2(labelOffsetY, LEADER_DX_PX) * (180 / Math.PI);
-        leaderEl.style.width = length + "px";
-        leaderEl.style.transform = `rotate(${angle}deg)`;
-      } else {
-        leaderEl.style.width = "0px";
-        leaderEl.style.transform = "none";
-      }
+      leaderEl.style.height = Math.abs(labelOffsetY) + "px";
+      leaderEl.style.marginTop = Math.min(0, labelOffsetY) + "px";
     }
 
     const labelPoint = { x: point.x, y: point.y + labelOffsetY };
