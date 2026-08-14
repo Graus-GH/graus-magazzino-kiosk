@@ -73,9 +73,11 @@ function declutterLabels() {
   // hides short ones unnecessarily.
   const CLUSTER_RADIUS_PX = 24; // markers this close together get fanned out
   const SPREAD_RADIUS_PX = 14; // how far apart they land once fanned out
+  const LABEL_ROW_PX = 26; // vertical spacing between staggered label rows within a cluster
+  const LEADER_DX_PX = 14; // horizontal reach of the little dash connecting a shifted label back to its dot
   const CHAR_WIDTH_PX = 7.2; // rough average glyph width for the label's font/size
   const LABEL_PADDING_PX = 22; // the label pill's own left+right padding
-  const LABEL_HEIGHT_PX = 26;
+  const LABEL_HEIGHT_PX = 22;
 
   // Always computed from the vehicle's TRUE lat/lng (not the marker's
   // current, possibly already-fanned-out position) so repeated calls (this
@@ -84,7 +86,7 @@ function declutterLabels() {
   const entries = Object.entries(markersByDevice).map(([id, marker]) => {
     const v = currentVehicles.find(cv => String(cv.id) === id);
     const truePoint = map.latLngToContainerPoint([v.latitude, v.longitude]);
-    return { id, marker, truePoint, point: truePoint };
+    return { id, marker, truePoint, point: truePoint, labelOffsetY: 0 };
   });
 
   const assigned = new Set();
@@ -102,6 +104,12 @@ function declutterLabels() {
         const angle = (2 * Math.PI * i) / group.length;
         g.point = L.point(cx + SPREAD_RADIUS_PX * Math.cos(angle), cy + SPREAD_RADIUS_PX * Math.sin(angle));
         g.marker.setLatLng(map.containerPointToLatLng(g.point));
+        // Long labels (especially with a driver name appended) are almost
+        // always wider than any reasonable horizontal spread, so on their
+        // own the dot-fanning above still leaves every label competing for
+        // the same row. Staggering them onto different rows lets more than
+        // just one survive the collision check below.
+        g.labelOffsetY = (i - (group.length - 1) / 2) * LABEL_ROW_PX;
       });
     }
   });
@@ -110,23 +118,42 @@ function declutterLabels() {
   entries.sort((a, b) => (a.id === String(activeVehicleId) ? -1 : b.id === String(activeVehicleId) ? 1 : 0));
 
   const shown = [];
-  entries.forEach(({ marker, point }) => {
+  entries.forEach(({ marker, point, labelOffsetY }) => {
     const el = marker.getElement();
     if (!el) return;
     const nameEl = el.querySelector(".k-marker-name");
     if (!nameEl) return;
 
+    nameEl.style.marginTop = labelOffsetY + "px";
+
+    // A shifted label gets a small dash pointing back at its actual dot, so
+    // it's still obvious which vehicle it belongs to even once spread well
+    // away from the row the dot itself sits on.
+    const leaderEl = el.querySelector(".k-marker-leader");
+    if (leaderEl) {
+      if (labelOffsetY !== 0) {
+        const length = Math.sqrt(LEADER_DX_PX * LEADER_DX_PX + labelOffsetY * labelOffsetY);
+        const angle = Math.atan2(labelOffsetY, LEADER_DX_PX) * (180 / Math.PI);
+        leaderEl.style.width = length + "px";
+        leaderEl.style.transform = `rotate(${angle}deg)`;
+      } else {
+        leaderEl.style.width = "0px";
+        leaderEl.style.transform = "none";
+      }
+    }
+
+    const labelPoint = { x: point.x, y: point.y + labelOffsetY };
     const width = nameEl.textContent.length * CHAR_WIDTH_PX + LABEL_PADDING_PX;
 
     const overlaps = shown.some(s =>
-      Math.abs(s.point.x - point.x) < (s.width + width) / 2 && Math.abs(s.point.y - point.y) < LABEL_HEIGHT_PX
+      Math.abs(s.point.x - labelPoint.x) < (s.width + width) / 2 && Math.abs(s.point.y - labelPoint.y) < LABEL_HEIGHT_PX
     );
 
     if (overlaps) {
       nameEl.style.display = "none";
     } else {
       nameEl.style.display = "";
-      shown.push({ point, width });
+      shown.push({ point: labelPoint, width });
     }
   });
 }
@@ -271,6 +298,7 @@ function buildMarkerIcon(v, isActive) {
       <div class="k-marker-rotate" ${rotateStyle}>
         <div class="k-marker-shape k-marker-shape--${v.state}"></div>
       </div>
+      <div class="k-marker-leader"></div>
       <span class="k-marker-name">${labelText}</span>
     </div>
   `;

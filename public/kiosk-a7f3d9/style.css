@@ -691,6 +691,14 @@ html, body {
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
 }
 
+.k-marker-leader {
+  width: 0;
+  height: 1px;
+  flex-shrink: 0;
+  background: rgba(238, 242, 247, 0.55);
+  transform-origin: left center;
+}
+
 .k-marker-name {
   background: rgba(11, 15, 22, 0.85);
   color: var(--text-primary);
