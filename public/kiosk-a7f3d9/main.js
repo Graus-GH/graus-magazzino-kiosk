@@ -123,18 +123,19 @@ function declutterLabels() {
     const nameEl = el.querySelector(".k-marker-name");
     if (!nameEl) return;
 
-    nameEl.style.marginTop = labelOffsetY + "px";
+    // Both are absolutely positioned (see style.css) with a fixed "top: 12px"
+    // baseline (the dot's vertical center) that this offset shifts from —
+    // NOT a margin on a flex sibling, which fed back into the row's own
+    // computed height and made the connector land in the wrong place.
+    nameEl.style.top = (12 + labelOffsetY) + "px";
 
     // A shifted label gets a small vertical dash connecting it back to the
     // row its dot sits on, so it's still obvious which vehicle it belongs
-    // to once spread away from that row. Plain height + margin (no
-    // rotation) — a rotated bar looked connected in isolation but doesn't
-    // actually follow the flex layout's real flow, so it landed nowhere
-    // near the label once actually rendered.
+    // to once spread away from that row.
     const leaderEl = el.querySelector(".k-marker-leader");
     if (leaderEl) {
       leaderEl.style.height = Math.abs(labelOffsetY) + "px";
-      leaderEl.style.marginTop = Math.min(0, labelOffsetY) + "px";
+      leaderEl.style.top = (12 + Math.min(0, labelOffsetY)) + "px";
     }
 
     const labelPoint = { x: point.x, y: point.y + labelOffsetY };
