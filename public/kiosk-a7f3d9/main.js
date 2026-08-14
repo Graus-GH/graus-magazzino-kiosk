@@ -146,9 +146,14 @@ function declutterLabels() {
     );
 
     if (overlaps) {
+      // Hide the leader along with the label — otherwise a hidden vehicle's
+      // own dash keeps rendering, and several of those stacked so close
+      // together in a cluster read as one long, disconnected line.
       nameEl.style.display = "none";
+      if (leaderEl) leaderEl.style.display = "none";
     } else {
       nameEl.style.display = "";
+      if (leaderEl) leaderEl.style.display = "";
       shown.push({ point: labelPoint, width });
     }
   });
