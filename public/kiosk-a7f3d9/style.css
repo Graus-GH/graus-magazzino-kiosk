@@ -714,9 +714,9 @@ html, body {
 
 .k-marker-leader {
   width: 0;
-  height: 1px;
+  height: 2px;
   flex-shrink: 0;
-  background: rgba(238, 242, 247, 0.55);
+  background: rgba(11, 15, 22, 0.85);
   transform-origin: left center;
 }
 
