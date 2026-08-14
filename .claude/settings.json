@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where *)",
+      "mcp__0f4251b5-cce2-4f67-9a7a-8b83a6b94876__list_teams"
+    ]
+  }
+}
