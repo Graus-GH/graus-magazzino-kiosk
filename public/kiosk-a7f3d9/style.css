@@ -751,44 +751,50 @@ html.k-portrait body {
 html.k-portrait .k-main {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto minmax(0, 3fr) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 18px;
   padding: 20px 24px 24px;
   overflow-y: auto;
 }
 
+/* Fixed height (a share of the screen), not "however tall the content
+   wants to be" — otherwise bigger KPI text silently steals room from the
+   panels below with no scroll to fall back on to recover it. */
 html.k-portrait .k-kpis {
   grid-column: 1 / 3;
   grid-row: 1;
   grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
   gap: 8px;
+  height: 16vh;
+  min-height: 190px;
 }
 
 html.k-portrait .k-kpi {
-  padding: 12px 16px;
+  padding: 6px 14px;
   border-radius: 10px;
-  gap: 4px;
+  gap: 2px;
 }
 
 html.k-portrait .k-kpi-value {
-  font-size: 30px;
+  font-size: 26px;
 }
 
 html.k-portrait .k-kpi-label {
-  font-size: 13px;
+  font-size: 11px;
 }
 
 html.k-portrait .k-quadrant--map-big {
   grid-column: 1 / 3;
   grid-row: 2;
-  height: 32vh;
-  min-height: 260px;
+  height: 28vh;
+  min-height: 230px;
 }
 
 html.k-portrait .k-quadrant--roster {
   grid-column: 1;
   grid-row: 3 / 5;
-  min-height: 320px;
+  min-height: 260px;
 }
 
 html.k-portrait .k-quadrant--map-detail {
@@ -810,5 +816,5 @@ html.k-portrait .k-spotlight-map-wrap {
 html.k-portrait .k-quadrant--detail-data {
   grid-column: 2;
   grid-row: 4;
-  min-height: 200px;
+  min-height: 160px;
 }
