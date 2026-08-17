@@ -52,6 +52,20 @@ function initMap(style = "voyager") {
   map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
   tileLayer = createTileLayer(style).addTo(map);
   map.on("zoomend moveend", declutterLabels);
+
+  // Leaflet measures its container once at creation time and only loads
+  // tiles for that size — if the surrounding layout still settles after
+  // that (web fonts loading async and reflowing the KPI row's height is
+  // the usual culprit, especially on a TV that's slower to finish
+  // rendering), the map is left showing tiles only for its stale initial
+  // size, with the rest blank until told to re-measure.
+  const refreshMapSize = () => { if (map) map.invalidateSize(); };
+  setTimeout(refreshMapSize, 300);
+  setTimeout(refreshMapSize, 1200);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(refreshMapSize);
+  }
+  window.addEventListener("resize", refreshMapSize);
 }
 
 // Hides overlapping vehicle-name labels (keeping the colored shape always
