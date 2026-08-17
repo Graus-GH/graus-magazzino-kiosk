@@ -180,6 +180,18 @@ function setTileStyle(style) {
   document.getElementById("tile-osm").classList.toggle("k-tile-btn--active", style === "osm");
 }
 
+function fmtFuelLevel(pct) {
+  return pct == null ? "n/d" : Math.round(pct) + "%";
+}
+
+function fmtOdometer(km) {
+  return km == null ? "n/d" : Math.round(km).toLocaleString("it-IT") + " km";
+}
+
+function fmtFuelEconomy(v) {
+  return v == null ? "n/d" : v.toFixed(1);
+}
+
 function fmtClock(d) {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
@@ -233,17 +245,20 @@ function startClock() {
   el.textContent = fmtClock(new Date());
 }
 
-function renderKpis(vehicles, todaySpeedingEvents, speedingAvailable) {
-  document.getElementById("kpi-total").textContent = vehicles.length;
-  document.getElementById("kpi-moving").textContent =
-    vehicles.filter(v => v.state === "moving").length;
-  document.getElementById("kpi-stopped").textContent =
-    vehicles.filter(v => v.state === "stopped").length;
-  document.getElementById("kpi-offline").textContent =
-    vehicles.filter(v => v.state === "offline").length;
+function renderKpis(vehicles, totalDrivingSeconds, todaySpeedingEvents, speedingAvailable) {
+  const total = vehicles.length;
+  const moving = vehicles.filter(v => v.state === "moving").length;
+  const stopped = vehicles.filter(v => v.state === "stopped").length;
+  const offline = vehicles.filter(v => v.state === "offline").length;
+  const totalKm = Math.round(vehicles.reduce((sum, v) => sum + (v.todayDistanceKm || 0), 0));
+  const speedingText = speedingAvailable ? todaySpeedingEvents : "n/d";
 
-  const totalKm = vehicles.reduce((sum, v) => sum + (v.todayDistanceKm || 0), 0);
-  document.getElementById("kpi-km").textContent = Math.round(totalKm);
+  // Landscape (PC ufficio) KPI grid — unchanged, all original tiles.
+  document.getElementById("kpi-total").textContent = total;
+  document.getElementById("kpi-moving").textContent = moving;
+  document.getElementById("kpi-stopped").textContent = stopped;
+  document.getElementById("kpi-offline").textContent = offline;
+  document.getElementById("kpi-km").textContent = totalKm;
 
   const withStops = vehicles.filter(v => v.todayStopSeconds > 0);
   const avgStopSeconds = withStops.length
@@ -255,8 +270,18 @@ function renderKpis(vehicles, todaySpeedingEvents, speedingAvailable) {
   const totalStopCount = vehicles.reduce((sum, v) => sum + (v.todayStopCount || 0), 0);
   document.getElementById("kpi-stop-duration").textContent = fmtDuration(totalStopSeconds);
   document.getElementById("kpi-stop-count").textContent = totalStopCount;
+  document.getElementById("kpi-speeding").textContent = speedingText;
 
-  document.getElementById("kpi-speeding").textContent = speedingAvailable ? todaySpeedingEvents : "n/d";
+  // Verticale (TV) compact strip — vehicle states aggregated into one tile,
+  // plus km/engine-hours/speeding. Stop count & duration deliberately left
+  // out here (still visible in "Stato flotta" and Analisi Soste).
+  document.getElementById("kpiv-total").textContent = total;
+  document.getElementById("kpiv-moving").textContent = moving;
+  document.getElementById("kpiv-stopped").textContent = stopped;
+  document.getElementById("kpiv-offline").textContent = offline;
+  document.getElementById("kpiv-km").textContent = totalKm;
+  document.getElementById("kpiv-driving").textContent = fmtDuration(totalDrivingSeconds || 0);
+  document.getElementById("kpiv-speeding").textContent = speedingText;
 }
 
 function statusColor(state) {
@@ -395,8 +420,16 @@ function renderSpotlight(vehicle) {
         <span class="k-spotlight-stat-label">fermo oggi</span>
       </div>
       <div>
-        <span class="k-spotlight-stat-value">${vehicle.todayStopCount || 0}</span>
-        <span class="k-spotlight-stat-label">soste oggi</span>
+        <span class="k-spotlight-stat-value">${fmtFuelLevel(vehicle.fuelLevelPercent)}</span>
+        <span class="k-spotlight-stat-label">carburante</span>
+      </div>
+      <div>
+        <span class="k-spotlight-stat-value">${fmtOdometer(vehicle.odometerKm)}</span>
+        <span class="k-spotlight-stat-label">contachilometri</span>
+      </div>
+      <div>
+        <span class="k-spotlight-stat-value">${fmtFuelEconomy(vehicle.fuelEconomy)}</span>
+        <span class="k-spotlight-stat-label">consumo l/100km</span>
       </div>
     </div>
     <div class="k-spotlight-updated">Posizione aggiornata alle ${lastUpdateLabel}</div>
@@ -482,7 +515,7 @@ async function refresh() {
     if (data.error) throw new Error(data.error);
 
     currentVehicles = data.vehicles;
-    renderKpis(currentVehicles, data.todaySpeedingEvents, data.speedingAvailable);
+    renderKpis(currentVehicles, data.totalDrivingSeconds, data.todaySpeedingEvents, data.speedingAvailable);
     renderMap(currentVehicles);
     renderRoster(currentVehicles);
 
@@ -502,7 +535,7 @@ document.getElementById("tile-voyager").addEventListener("click", () => setTileS
 document.getElementById("tile-osm").addEventListener("click", () => setTileStyle("osm"));
 
 startClock();
-initMap("voyager");
+initMap("osm");
 initSpotlightMap();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);

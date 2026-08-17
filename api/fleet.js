@@ -19,6 +19,10 @@ const { mergeConsecutiveZoneStops } = require("../lib/mergeStops");
 const { isHomeZone } = require("../lib/homeZone");
 const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
 const { getSpeedingRuleId } = require("../lib/speedingRule");
+const { parseDurationSeconds } = require("../lib/duration");
+const { getDiagnosticIds, getLatestStatusDataByDevice } = require("../lib/vehicleDiagnostics");
+
+const DIAGNOSTIC_LOOKBACK_MS = 48 * 60 * 60 * 1000; // devices don't all report fuel/odometer daily
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -42,13 +46,36 @@ module.exports = async (req, res) => {
     statuses.forEach(s => { statusByDevice[s.device.id] = s; });
 
     const distanceByDevice = {};
+    const drivingSecondsByDevice = {};
     trips.forEach(t => {
       const id = t.device.id;
       distanceByDevice[id] = (distanceByDevice[id] || 0) + (t.distance || 0);
+      drivingSecondsByDevice[id] = (drivingSecondsByDevice[id] || 0) + parseDurationSeconds(t.drivingDuration);
     });
+    const totalDrivingSeconds = Object.values(drivingSecondsByDevice).reduce((sum, s) => sum + s, 0);
 
     const revealDrivers = isRevealRequested(req);
     const driverNameByDeviceId = revealDrivers ? await buildDriverNameMap(trips) : {};
+
+    // Fuel level / odometer / fuel economy — read straight from Geotab's
+    // StatusData, one lookup per diagnostic covering the whole fleet at
+    // once rather than per device. Whether these come back populated
+    // depends on what the installed hardware actually reports; missing
+    // data just means "n/d" for that vehicle, not a fetch error.
+    let fuelLevelByDevice = {};
+    let odometerByDevice = {};
+    let fuelEconomyByDevice = {};
+    try {
+      const diagIds = await getDiagnosticIds();
+      const since = new Date(now.getTime() - DIAGNOSTIC_LOOKBACK_MS);
+      [fuelLevelByDevice, odometerByDevice, fuelEconomyByDevice] = await Promise.all([
+        getLatestStatusDataByDevice(diagIds.fuelLevel, since),
+        getLatestStatusDataByDevice(diagIds.odometer, since),
+        getLatestStatusDataByDevice(diagIds.fuelEconomy, since)
+      ]);
+    } catch (err) {
+      console.error("Vehicle diagnostics fetch failed:", err.message);
+    }
 
     // Speeding today, fleet-wide total — cheap to add here since it just
     // reads events Geotab already computed (via the "Eccesso di velocità
@@ -142,6 +169,19 @@ module.exports = async (req, res) => {
       }
       const location = zoneName || address;
 
+      // Fuel level comes through as either a 0–1 fraction or an already-a-
+      // percentage 0–100 number depending on the device model — normalize
+      // to a plain percentage either way.
+      const fuelLevelRaw = fuelLevelByDevice[device.id] ? fuelLevelByDevice[device.id].data : null;
+      const fuelLevelPercent = fuelLevelRaw == null ? null
+        : Math.round((fuelLevelRaw <= 1 ? fuelLevelRaw * 100 : fuelLevelRaw) * 10) / 10;
+
+      // Odometer diagnostic is in meters.
+      const odometerRaw = odometerByDevice[device.id] ? odometerByDevice[device.id].data : null;
+      const odometerKm = odometerRaw == null ? null : Math.round(odometerRaw / 100) / 10;
+
+      const fuelEconomyRaw = fuelEconomyByDevice[device.id] ? fuelEconomyByDevice[device.id].data : null;
+
       return {
         id: device.id,
         name: cleanName(device.name),
@@ -158,12 +198,17 @@ module.exports = async (req, res) => {
         stopDurationMs: currentStop ? currentStop.durationSeconds * 1000 : null,
         todayStopSeconds: Math.round(todayStopSeconds),
         todayStopCount,
-        todayDistanceKm: Math.round((distanceByDevice[device.id] || 0) * 10) / 10
+        todayDistanceKm: Math.round((distanceByDevice[device.id] || 0) * 10) / 10,
+        todayDrivingSeconds: Math.round(drivingSecondsByDevice[device.id] || 0),
+        fuelLevelPercent,
+        odometerKm,
+        fuelEconomy: fuelEconomyRaw == null ? null : Math.round(fuelEconomyRaw * 10) / 10
       };
     }));
 
     res.status(200).json({
       generatedAt: now.toISOString(),
+      totalDrivingSeconds: Math.round(totalDrivingSeconds),
       vehicles,
       todaySpeedingEvents,
       speedingAvailable

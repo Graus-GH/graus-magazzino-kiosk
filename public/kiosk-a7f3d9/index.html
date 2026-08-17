@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=22" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=23" />
 </head>
 <body>
 
@@ -77,13 +77,44 @@
         </div>
       </div>
 
+      <!-- Verticale (TV) only — compact strip, see html.k-portrait rules in
+           style.css. Vehicle states aggregated into one tile; stop count
+           and duration dropped (still visible in Stato flotta / Analisi
+           Soste). Separate ids from the grid above so renderKpis() can
+           keep both in sync regardless of which one is actually shown. -->
+      <div class="k-kpis-portrait">
+        <div class="k-kpi k-kpi--states">
+          <div class="k-kpi-states-top">
+            <span class="k-kpi-value" id="kpiv-total">–</span>
+            <span class="k-kpi-label">Veicoli</span>
+          </div>
+          <div class="k-kpi-states-row">
+            <span class="k-kpi-state"><i class="k-dot k-dot--moving"></i><span id="kpiv-moving">–</span></span>
+            <span class="k-kpi-state"><i class="k-dot k-dot--stopped"></i><span id="kpiv-stopped">–</span></span>
+            <span class="k-kpi-state"><i class="k-dot k-dot--offline"></i><span id="kpiv-offline">–</span></span>
+          </div>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value" id="kpiv-km">–</span>
+          <span class="k-kpi-label">Km oggi</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value" id="kpiv-driving">–</span>
+          <span class="k-kpi-label">Ore motore</span>
+        </div>
+        <div class="k-kpi" title="Un evento si attiva quando un veicolo supera il limite di velocità di almeno il 20% per una durata pari o superiore a 5 secondi (regola Geotab)">
+          <span class="k-kpi-value k-kpi-value--stopped" id="kpiv-speeding">–</span>
+          <span class="k-kpi-label">Eccessi oggi</span>
+        </div>
+      </div>
+
       <section class="k-quadrant k-quadrant--map-big">
         <div class="k-map-section">
           <div id="k-map"></div>
 
           <div class="k-tile-toggle">
-            <button id="tile-voyager" class="k-tile-btn k-tile-btn--active">Voyager</button>
-            <button id="tile-osm" class="k-tile-btn">OpenStreetMap</button>
+            <button id="tile-voyager" class="k-tile-btn">Voyager</button>
+            <button id="tile-osm" class="k-tile-btn k-tile-btn--active">OpenStreetMap</button>
           </div>
 
           <div class="k-map-legend">
@@ -127,6 +158,6 @@
   </div>
 
   <script src="/kiosk-a7f3d9/keyPersist.js?v=2"></script>
-  <script src="/kiosk-a7f3d9/main.js?v=19"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=20"></script>
 </body>
 </html>

@@ -346,6 +346,42 @@ html, body {
   letter-spacing: 0.04em;
 }
 
+/* ---------- Verticale-only compact KPI strip ----------
+ * Hidden on landscape (PC ufficio), which keeps the original 9-tile grid
+ * above unchanged. See the html.k-portrait rules further down for how this
+ * gets shown/positioned instead.
+ */
+
+.k-kpis-portrait {
+  display: none;
+}
+
+.k-kpi--states {
+  justify-content: center;
+}
+
+.k-kpi-states-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.k-kpi-states-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.k-kpi-state {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 .k-panel {
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -528,7 +564,7 @@ html, body {
 
 .k-spotlight-stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px 14px;
 }
 
@@ -735,12 +771,13 @@ html, body {
  * Activated by layoutMode.js, either via ?layout=verticale (forced, for the
  * Samsung signage TV) or real orientation detection. Own arrangement,
  * independent from the landscape grid above:
- *   [ KPIs — full width, small ]
  *   [ Big map — full width ]
  *   [ Stato flotta | Cartina di dettaglio ]
  *   [              | Dati di dettaglio    ]
- * i.e. the roster sits beside the detail map+data column, matched in
- * height to that column, rather than beside the KPIs like in landscape.
+ *   [ KPIs — full width, compact, one row ]
+ * i.e. the map leads (primary content), the roster sits beside the detail
+ * map+data column matched to its height, and the KPI strip sits at the
+ * bottom under Stato flotta instead of leading at the top.
  */
 
 html.k-portrait,
@@ -751,55 +788,33 @@ html.k-portrait body {
 html.k-portrait .k-main {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto minmax(0, 1.5fr) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-rows: auto minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  gap: 16px;
   padding: 20px 24px 24px;
   overflow-y: auto;
 }
 
-/* Fixed height (a share of the screen), not "however tall the content
-   wants to be" — otherwise bigger KPI text silently steals room from the
-   panels below with no scroll to fall back on to recover it. */
+/* landscape's 9-tile grid plays no part in portrait */
 html.k-portrait .k-kpis {
-  grid-column: 1 / 3;
-  grid-row: 1;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 8px;
-  height: 16vh;
-  min-height: 190px;
-}
-
-html.k-portrait .k-kpi {
-  padding: 6px 14px;
-  border-radius: 10px;
-  gap: 2px;
-}
-
-html.k-portrait .k-kpi-value {
-  font-size: 26px;
-}
-
-html.k-portrait .k-kpi-label {
-  font-size: 11px;
+  display: none;
 }
 
 html.k-portrait .k-quadrant--map-big {
   grid-column: 1 / 3;
-  grid-row: 2;
-  height: 28vh;
-  min-height: 230px;
+  grid-row: 1;
+  height: 30vh;
+  min-height: 240px;
 }
 
 html.k-portrait .k-quadrant--roster {
   grid-column: 1;
-  grid-row: 3 / 5;
+  grid-row: 2 / 4;
   min-height: 260px;
 }
 
 html.k-portrait .k-quadrant--map-detail {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 2;
 }
 
 /* Landscape keeps the detail map small/square (see base rule above); in
@@ -815,6 +830,35 @@ html.k-portrait .k-spotlight-map-wrap {
 
 html.k-portrait .k-quadrant--detail-data {
   grid-column: 2;
-  grid-row: 4;
+  grid-row: 3;
   min-height: 160px;
+}
+
+/* Compact KPI strip — one row, fixed/bounded height so it can't silently
+   grow into the space the panels above need. */
+html.k-portrait .k-kpis-portrait {
+  display: grid;
+  grid-column: 1 / 3;
+  grid-row: 4;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  height: 11vh;
+  min-height: 100px;
+}
+
+html.k-portrait .k-kpis-portrait .k-kpi {
+  padding: 8px 14px;
+  border-radius: 10px;
+  gap: 2px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+html.k-portrait .k-kpis-portrait .k-kpi-value {
+  font-size: 24px;
+}
+
+html.k-portrait .k-kpis-portrait .k-kpi-label {
+  font-size: 11px;
 }
