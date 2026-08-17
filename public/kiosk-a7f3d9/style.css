@@ -765,17 +765,17 @@ html.k-portrait .k-kpis {
 }
 
 html.k-portrait .k-kpi {
-  padding: 8px 12px;
+  padding: 12px 16px;
   border-radius: 10px;
-  gap: 2px;
+  gap: 4px;
 }
 
 html.k-portrait .k-kpi-value {
-  font-size: 20px;
+  font-size: 30px;
 }
 
 html.k-portrait .k-kpi-label {
-  font-size: 10px;
+  font-size: 13px;
 }
 
 html.k-portrait .k-quadrant--map-big {
