@@ -2,6 +2,15 @@
  * GRAUS Fleet Kiosk — main map view
  */
 
+// Forces Leaflet to position tiles with plain CSS left/top instead of
+// transform3d/GPU compositing. The TV's browser engine was rendering the
+// map with alternating blank horizontal bands — a known failure mode for
+// transform3d tile positioning on older/embedded Chromium builds — even
+// though the map's own measured size was correct. 2D positioning is a
+// little less smooth when panning, which doesn't matter here since this
+// kiosk isn't interactive and just redraws on each periodic refresh.
+if (window.L) L.Browser.any3d = false;
+
 const REFRESH_INTERVAL_MS = 60 * 1000;
 const SPOTLIGHT_INTERVAL_MS = 15 * 1000;
 const CENTER = [46.55, 11.9]; // Alta Badia area
@@ -59,7 +68,11 @@ function initMap(style = "voyager") {
   // the usual culprit, especially on a TV that's slower to finish
   // rendering), the map is left showing tiles only for its stale initial
   // size, with the rest blank until told to re-measure.
-  const refreshMapSize = () => { if (map) map.invalidateSize(); };
+  const refreshMapSize = () => {
+    if (!map) return;
+    map.invalidateSize();
+    if (tileLayer) tileLayer.redraw();
+  };
   setTimeout(refreshMapSize, 300);
   setTimeout(refreshMapSize, 1200);
   if (document.fonts && document.fonts.ready) {
