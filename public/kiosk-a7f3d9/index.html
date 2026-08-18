@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=23" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=24" />
 </head>
 <body>
 
@@ -24,8 +24,11 @@
       <div class="k-brand">
         <img class="k-brand-mark" src="https://firebasestorage.googleapis.com/v0/b/graus-website.firebasestorage.app/o/uploads%2F1783928606742-1CaXk68QPYFnSibPMj4fOxvLB0sejKVUL_1_.webp?alt=media" alt="GRAUS">
         <span class="k-brand-sub">Cruscotto Flotta — Magazzino</span>
-        <a href="/kiosk-a7f3d9/soste.html" class="k-nav-link">Analisi soste →</a>
-        <a href="/kiosk-a7f3d9/performance.html" class="k-nav-link">Performance →</a>
+        <button class="k-menu-toggle" id="k-menu-toggle" aria-label="Menu" title="Menu">☰</button>
+        <nav class="k-menu-dropdown" id="k-menu-dropdown">
+          <a href="/kiosk-a7f3d9/soste.html" class="k-nav-link">Analisi soste →</a>
+          <a href="/kiosk-a7f3d9/performance.html" class="k-nav-link">Performance →</a>
+        </nav>
       </div>
       <div class="k-header-right">
         <div class="k-live">
@@ -89,9 +92,9 @@
             <span class="k-kpi-label">Veicoli</span>
           </div>
           <div class="k-kpi-states-row">
-            <span class="k-kpi-state"><i class="k-dot k-dot--moving"></i><span id="kpiv-moving">–</span></span>
-            <span class="k-kpi-state"><i class="k-dot k-dot--stopped"></i><span id="kpiv-stopped">–</span></span>
-            <span class="k-kpi-state"><i class="k-dot k-dot--offline"></i><span id="kpiv-offline">–</span></span>
+            <span class="k-kpi-state"><i class="k-dot k-dot--moving"></i>In movimento <b id="kpiv-moving">–</b></span>
+            <span class="k-kpi-state"><i class="k-dot k-dot--stopped"></i>Fermi <b id="kpiv-stopped">–</b></span>
+            <span class="k-kpi-state"><i class="k-dot k-dot--offline"></i>Offline <b id="kpiv-offline">–</b></span>
           </div>
         </div>
         <div class="k-kpi">
@@ -111,11 +114,6 @@
       <section class="k-quadrant k-quadrant--map-big">
         <div class="k-map-section">
           <div id="k-map"></div>
-
-          <div class="k-tile-toggle">
-            <button id="tile-voyager" class="k-tile-btn">Voyager</button>
-            <button id="tile-osm" class="k-tile-btn k-tile-btn--active">OpenStreetMap</button>
-          </div>
 
           <div class="k-map-legend">
             <span class="k-legend-item"><i class="k-dot k-dot--moving"></i>In movimento</span>
@@ -157,7 +155,7 @@
 
   </div>
 
-  <script src="/kiosk-a7f3d9/keyPersist.js?v=2"></script>
-  <script src="/kiosk-a7f3d9/main.js?v=20"></script>
+  <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=21"></script>
 </body>
 </html>

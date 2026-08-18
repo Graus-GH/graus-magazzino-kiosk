@@ -25,16 +25,8 @@ const HOME_BASE = { lat: 46.6305, lng: 11.8956 };
 const HOME_BASE_RADIUS_M = 300; // within this distance, just say "In sede"
 const HOME_ZONE_MATCH = "graus"; // case-insensitive substring match on zone name, same as Analisi Soste
 
-const TILE_LAYERS = {
-  voyager: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-  osm: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-};
-
-// The spotlight/detail mini-map always uses standard OpenStreetMap tiles —
-// independent from whatever style is chosen for the main overview map —
-// because they show the richest set of labeled points of interest
-// (restaurants, hotels, shops) at close zoom, which is the whole point of
-// that close-up view.
+// Also used for the main overview map — no style switcher anymore (the
+// kiosk isn't interactive, so a toggle nobody can reach wasn't useful).
 const SPOTLIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const SPOTLIGHT_SATELLITE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SPOTLIGHT_ZOOM = 16;
@@ -53,13 +45,9 @@ let spotlightMarker;
 let spotlightTimer = null;
 let resumeTimer = null;
 
-function createTileLayer(style) {
-  return L.tileLayer(TILE_LAYERS[style], { maxZoom: 19 });
-}
-
-function initMap(style = "voyager") {
+function initMap() {
   map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
-  tileLayer = createTileLayer(style).addTo(map);
+  tileLayer = L.tileLayer(SPOTLIGHT_TILE_URL, { maxZoom: 19 }).addTo(map);
   map.on("zoomend moveend", declutterLabels);
 
   // Leaflet measures its container once at creation time and only loads
@@ -170,14 +158,6 @@ function initSpotlightMap() {
       ? L.tileLayer(SPOTLIGHT_SATELLITE_URL, { maxZoom: 19, attribution: "Tiles © Esri" }).addTo(spotlightMap)
       : L.tileLayer(SPOTLIGHT_TILE_URL, { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(spotlightMap);
   });
-}
-
-function setTileStyle(style) {
-  if (tileLayer) map.removeLayer(tileLayer);
-  tileLayer = createTileLayer(style).addTo(map);
-
-  document.getElementById("tile-voyager").classList.toggle("k-tile-btn--active", style === "voyager");
-  document.getElementById("tile-osm").classList.toggle("k-tile-btn--active", style === "osm");
 }
 
 function fmtFuelLevel(pct) {
@@ -531,11 +511,8 @@ async function refresh() {
   }
 }
 
-document.getElementById("tile-voyager").addEventListener("click", () => setTileStyle("voyager"));
-document.getElementById("tile-osm").addEventListener("click", () => setTileStyle("osm"));
-
 startClock();
-initMap("osm");
+initMap();
 initSpotlightMap();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);

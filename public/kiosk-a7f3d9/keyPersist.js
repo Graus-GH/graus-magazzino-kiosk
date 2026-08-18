@@ -25,3 +25,21 @@
     });
   });
 })();
+
+// Hamburger menu toggle for the header nav links — shared by all three
+// pages. Closes on an outside click; clicking inside the dropdown itself
+// doesn't count as "outside" (so link clicks still navigate normally).
+(function () {
+  document.addEventListener("DOMContentLoaded", () => {
+    const toggle = document.getElementById("k-menu-toggle");
+    const dropdown = document.getElementById("k-menu-dropdown");
+    if (!toggle || !dropdown) return;
+
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle("k-menu-dropdown--open");
+    });
+    dropdown.addEventListener("click", (e) => e.stopPropagation());
+    document.addEventListener("click", () => dropdown.classList.remove("k-menu-dropdown--open"));
+  });
+})();

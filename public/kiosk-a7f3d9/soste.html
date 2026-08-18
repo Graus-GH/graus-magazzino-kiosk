@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=23" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=24" />
 <link rel="stylesheet" href="/kiosk-a7f3d9/soste.css?v=8" />
 </head>
 <body>
@@ -26,8 +26,11 @@
         <img class="k-brand-mark" src="https://firebasestorage.googleapis.com/v0/b/graus-website.firebasestorage.app/o/uploads%2F1783928606742-1CaXk68QPYFnSibPMj4fOxvLB0sejKVUL_1_.webp?alt=media" alt="GRAUS">
         <span class="k-brand-sub">Analisi Soste per Veicolo</span>
         <input type="date" id="s-date-picker" class="s-date-picker">
-        <a href="/kiosk-a7f3d9/" class="k-nav-link">← Mappa</a>
-        <a href="/kiosk-a7f3d9/performance.html" class="k-nav-link">Performance →</a>
+        <button class="k-menu-toggle" id="k-menu-toggle" aria-label="Menu" title="Menu">☰</button>
+        <nav class="k-menu-dropdown" id="k-menu-dropdown">
+          <a href="/kiosk-a7f3d9/" class="k-nav-link">← Mappa</a>
+          <a href="/kiosk-a7f3d9/performance.html" class="k-nav-link">Performance →</a>
+        </nav>
       </div>
       <div class="k-header-right">
         <div class="k-live">
@@ -46,7 +49,7 @@
 
   </div>
 
-  <script src="/kiosk-a7f3d9/keyPersist.js?v=2"></script>
+  <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
   <script src="/kiosk-a7f3d9/soste.js?v=6"></script>
 </body>
 </html>
