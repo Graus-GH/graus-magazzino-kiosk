@@ -4,18 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1920, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>GRAUS Fleet — Analisi Soste</title>
+<title>GRAUS Fleet — Fotovoltaico</title>
 
 <script src="/kiosk-a7f3d9/layoutMode.js?v=1"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=24" />
-<link rel="stylesheet" href="/kiosk-a7f3d9/soste.css?v=8" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/solar.css?v=1" />
 </head>
 <body>
 
@@ -24,13 +21,12 @@
     <header class="k-header">
       <div class="k-brand">
         <img class="k-brand-mark" src="https://firebasestorage.googleapis.com/v0/b/graus-website.firebasestorage.app/o/uploads%2F1783928606742-1CaXk68QPYFnSibPMj4fOxvLB0sejKVUL_1_.webp?alt=media" alt="GRAUS">
-        <span class="k-brand-sub">Analisi Soste per Veicolo</span>
-        <input type="date" id="s-date-picker" class="s-date-picker">
+        <span class="k-brand-sub">Impianto Fotovoltaico</span>
         <button class="k-menu-toggle" id="k-menu-toggle" aria-label="Menu" title="Menu">☰</button>
         <nav class="k-menu-dropdown" id="k-menu-dropdown">
           <a href="/kiosk-a7f3d9/" class="k-nav-link">← Mappa</a>
+          <a href="/kiosk-a7f3d9/soste.html" class="k-nav-link">Analisi soste →</a>
           <a href="/kiosk-a7f3d9/performance.html" class="k-nav-link">Performance →</a>
-          <a href="/kiosk-a7f3d9/solar.html" class="k-nav-link">Fotovoltaico →</a>
         </nav>
       </div>
       <div class="k-header-right">
@@ -42,15 +38,38 @@
       </div>
     </header>
 
-    <main class="s-main">
-      <div id="s-vehicles" class="s-columns">
-        <p class="k-empty">Caricamento…</p>
+    <main class="sol-main">
+
+      <div class="sol-kpis">
+        <div class="k-panel sol-kpi-block">
+          <span class="sol-big-number" id="sol-power">–</span>
+          <span class="k-kpi-label">Potenza attuale</span>
+        </div>
+        <div class="k-panel sol-kpi-block">
+          <span class="sol-big-number" id="sol-today">–</span>
+          <span class="k-kpi-label">Energia oggi</span>
+        </div>
+        <div class="k-panel sol-kpi-block">
+          <span class="sol-big-number" id="sol-month">–</span>
+          <span class="k-kpi-label">Energia questo mese</span>
+        </div>
+        <div class="k-panel sol-kpi-block">
+          <span class="sol-big-number" id="sol-year">–</span>
+          <span class="k-kpi-label">Energia quest'anno</span>
+        </div>
       </div>
+
+      <div class="k-panel sol-chart-panel">
+        <h2 class="k-panel-title">Produzione di oggi</h2>
+        <p class="k-panel-sub">Potenza media per ora</p>
+        <div id="sol-chart" class="sol-chart-bars"></div>
+      </div>
+
     </main>
 
   </div>
 
   <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
-  <script src="/kiosk-a7f3d9/soste.js?v=6"></script>
+  <script src="/kiosk-a7f3d9/solar.js?v=1"></script>
 </body>
 </html>
