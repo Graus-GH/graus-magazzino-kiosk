@@ -6,7 +6,7 @@
   },
   "redirects": [
     { "source": "/tv", "destination": "/kiosk-a7f3d9/?layout=verticale", "permanent": false },
-    { "source": "/tv2", "destination": "/kiosk-a7f3d9/soste.html?layout=verticale", "permanent": false },
-    { "source": "/tv3", "destination": "/kiosk-a7f3d9/performance.html?layout=verticale", "permanent": false }
+    { "source": "/tv2", "destination": "/kiosk-a7f3d9/performance.html?layout=verticale", "permanent": false },
+    { "source": "/tv3", "destination": "/kiosk-a7f3d9/soste.html?layout=verticale", "permanent": false }
   ]
 }
