@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=24" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=25" />
 </head>
 <body>
 
@@ -24,7 +24,7 @@
       <div class="k-brand">
         <button class="k-menu-toggle" id="k-menu-toggle" aria-label="Menu" title="Menu">☰</button>
         <img class="k-brand-mark" src="https://firebasestorage.googleapis.com/v0/b/graus-website.firebasestorage.app/o/uploads%2F1783928606742-1CaXk68QPYFnSibPMj4fOxvLB0sejKVUL_1_.webp?alt=media" alt="GRAUS">
-        <span class="k-brand-sub">Cruscotto Flotta — Magazzino</span>
+        <span class="k-brand-sub">Flotta</span>
         <nav class="k-menu-dropdown" id="k-menu-dropdown">
           <a href="/kiosk-a7f3d9/soste.html" class="k-nav-link">Analisi soste →</a>
           <a href="/kiosk-a7f3d9/performance.html" class="k-nav-link">Performance →</a>
@@ -104,7 +104,11 @@
         </div>
         <div class="k-kpi">
           <span class="k-kpi-value" id="kpiv-driving">–</span>
-          <span class="k-kpi-label">Ore motore</span>
+          <span class="k-kpi-label">Ore motore oggi</span>
+        </div>
+        <div class="k-kpi">
+          <span class="k-kpi-value" id="kpiv-idling">–</span>
+          <span class="k-kpi-label">Ore motore da fermo oggi</span>
         </div>
         <div class="k-kpi" title="Un evento si attiva quando un veicolo supera il limite di velocità di almeno il 20% per una durata pari o superiore a 5 secondi (regola Geotab)">
           <span class="k-kpi-value k-kpi-value--stopped" id="kpiv-speeding">–</span>
@@ -137,7 +141,6 @@
       <section class="k-quadrant k-quadrant--roster">
         <div class="k-panel k-panel--grow">
           <h2 class="k-panel-title">Stato flotta</h2>
-          <p class="k-panel-sub">Tutti i veicoli, in tempo reale</p>
           <div id="k-roster" class="k-list k-list--scroll">
             <p class="k-empty">Caricamento…</p>
           </div>
@@ -157,6 +160,6 @@
   </div>
 
   <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
-  <script src="/kiosk-a7f3d9/main.js?v=21"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=22"></script>
 </body>
 </html>

@@ -67,7 +67,6 @@
 .sol-range-tabs {
   display: flex;
   gap: 8px;
-  margin-top: 18px;
   flex-shrink: 0;
 }
 

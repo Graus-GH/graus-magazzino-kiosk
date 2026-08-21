@@ -225,7 +225,7 @@ function startClock() {
   el.textContent = fmtClock(new Date());
 }
 
-function renderKpis(vehicles, totalDrivingSeconds, todaySpeedingEvents, speedingAvailable) {
+function renderKpis(vehicles, totalDrivingSeconds, totalIdlingSeconds, todaySpeedingEvents, speedingAvailable) {
   const total = vehicles.length;
   const moving = vehicles.filter(v => v.state === "moving").length;
   const stopped = vehicles.filter(v => v.state === "stopped").length;
@@ -261,6 +261,7 @@ function renderKpis(vehicles, totalDrivingSeconds, todaySpeedingEvents, speeding
   document.getElementById("kpiv-offline").textContent = offline;
   document.getElementById("kpiv-km").textContent = totalKm;
   document.getElementById("kpiv-driving").textContent = fmtDuration(totalDrivingSeconds || 0);
+  document.getElementById("kpiv-idling").textContent = fmtDuration(totalIdlingSeconds || 0);
   document.getElementById("kpiv-speeding").textContent = speedingText;
 }
 
@@ -332,9 +333,6 @@ function renderRoster(vehicles) {
 
   container.innerHTML = sorted.map(v => {
     const statusText = v.state === "moving" ? "In movimento" : v.state === "stopped" ? "Fermo" : "Offline";
-    const detail = v.state === "stopped"
-      ? `${fmtDuration((v.stopDurationMs || 0) / 1000)}${v.location ? " · " + v.location : ""}`
-      : "";
     const isActive = v.id === activeVehicleId;
     const clickable = v.latitude && v.longitude;
     return `
@@ -343,7 +341,6 @@ function renderRoster(vehicles) {
         ${rosterIconHtml(v)}
         <span class="k-roster-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
         <span class="k-spotlight-status k-spotlight-status--${v.state}">${statusText}</span>
-        <span class="k-roster-detail">${detail}</span>
       </div>
     `;
   }).join("");
@@ -374,10 +371,6 @@ function renderSpotlight(vehicle) {
                      : vehicle.state === "stopped" ? "Fermo"
                      : "Offline";
 
-  const lastUpdateLabel = vehicle.lastUpdate
-    ? new Date(vehicle.lastUpdate).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-    : "–";
-
   const locationLine = (vehicle.state === "stopped" && vehicle.location)
     ? `<div class="k-spotlight-location">📍 ${vehicleLocationBadge(vehicle)}</div>`
     : "";
@@ -396,10 +389,6 @@ function renderSpotlight(vehicle) {
         <span class="k-spotlight-stat-label">km oggi</span>
       </div>
       <div>
-        <span class="k-spotlight-stat-value">${fmtDuration(vehicle.todayStopSeconds || 0)}</span>
-        <span class="k-spotlight-stat-label">fermo oggi</span>
-      </div>
-      <div>
         <span class="k-spotlight-stat-value">${fmtFuelLevel(vehicle.fuelLevelPercent)}</span>
         <span class="k-spotlight-stat-label">carburante</span>
       </div>
@@ -412,7 +401,6 @@ function renderSpotlight(vehicle) {
         <span class="k-spotlight-stat-label">consumo l/100km</span>
       </div>
     </div>
-    <div class="k-spotlight-updated">Posizione aggiornata alle ${lastUpdateLabel}</div>
     <div class="k-spotlight-eta" id="k-spotlight-eta">Rientro in sede: calcolo…</div>
   `;
 
@@ -495,7 +483,7 @@ async function refresh() {
     if (data.error) throw new Error(data.error);
 
     currentVehicles = data.vehicles;
-    renderKpis(currentVehicles, data.totalDrivingSeconds, data.todaySpeedingEvents, data.speedingAvailable);
+    renderKpis(currentVehicles, data.totalDrivingSeconds, data.totalIdlingSeconds, data.todaySpeedingEvents, data.speedingAvailable);
     renderMap(currentVehicles);
     renderRoster(currentVehicles);
 

@@ -11,8 +11,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=24" />
-<link rel="stylesheet" href="/kiosk-a7f3d9/solar.css?v=2" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=25" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/solar.css?v=3" />
 </head>
 <body>
 
@@ -22,7 +22,7 @@
       <div class="k-brand">
         <button class="k-menu-toggle" id="k-menu-toggle" aria-label="Menu" title="Menu">☰</button>
         <img class="k-brand-mark" src="https://firebasestorage.googleapis.com/v0/b/graus-website.firebasestorage.app/o/uploads%2F1783928606742-1CaXk68QPYFnSibPMj4fOxvLB0sejKVUL_1_.webp?alt=media" alt="GRAUS">
-        <span class="k-brand-sub">Impianto Fotovoltaico</span>
+        <span class="k-brand-sub">Energia</span>
         <nav class="k-menu-dropdown" id="k-menu-dropdown">
           <a href="/kiosk-a7f3d9/" class="k-nav-link">← Mappa</a>
           <a href="/kiosk-a7f3d9/soste.html" class="k-nav-link">Analisi soste →</a>
@@ -39,6 +39,12 @@
     </header>
 
     <main class="sol-main">
+
+      <div class="sol-range-tabs" id="sol-range-tabs">
+        <button class="sol-range-tab sol-range-tab--active" data-range="today">Oggi</button>
+        <button class="sol-range-tab" data-range="last30">Ultimi 30 giorni</button>
+        <button class="sol-range-tab" data-range="monthly">Ultimi 12 mesi</button>
+      </div>
 
       <div class="sol-kpis">
         <div class="k-panel sol-kpi-block">
@@ -69,12 +75,6 @@
             <span class="sol-live-power-value" id="sol-power-live">–</span>
             <span class="k-kpi-label">Potenza attuale</span>
           </div>
-        </div>
-
-        <div class="sol-range-tabs" id="sol-range-tabs">
-          <button class="sol-range-tab sol-range-tab--active" data-range="today">Oggi</button>
-          <button class="sol-range-tab" data-range="last30">Ultimi 30 giorni</button>
-          <button class="sol-range-tab" data-range="monthly">Ultimi 12 mesi</button>
         </div>
 
         <div class="sol-flow-legend">

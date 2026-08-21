@@ -47,10 +47,12 @@ module.exports = async (req, res) => {
 
     const distanceByDevice = {};
     const drivingSecondsByDevice = {};
+    let totalIdlingSeconds = 0;
     trips.forEach(t => {
       const id = t.device.id;
       distanceByDevice[id] = (distanceByDevice[id] || 0) + (t.distance || 0);
       drivingSecondsByDevice[id] = (drivingSecondsByDevice[id] || 0) + parseDurationSeconds(t.drivingDuration);
+      totalIdlingSeconds += parseDurationSeconds(t.idlingDuration);
     });
     const totalDrivingSeconds = Object.values(drivingSecondsByDevice).reduce((sum, s) => sum + s, 0);
 
@@ -209,6 +211,7 @@ module.exports = async (req, res) => {
     res.status(200).json({
       generatedAt: now.toISOString(),
       totalDrivingSeconds: Math.round(totalDrivingSeconds),
+      totalIdlingSeconds: Math.round(totalIdlingSeconds),
       vehicles,
       todaySpeedingEvents,
       speedingAvailable
