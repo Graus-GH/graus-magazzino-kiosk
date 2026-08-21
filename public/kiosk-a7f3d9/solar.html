@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=24" />
-<link rel="stylesheet" href="/kiosk-a7f3d9/solar.css?v=1" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/solar.css?v=2" />
 </head>
 <body>
 
@@ -42,27 +42,49 @@
 
       <div class="sol-kpis">
         <div class="k-panel sol-kpi-block">
-          <span class="sol-big-number" id="sol-power">–</span>
-          <span class="k-kpi-label">Potenza attuale</span>
+          <span class="sol-big-number" id="sol-produced">–</span>
+          <span class="k-kpi-label">Energia prodotta</span>
         </div>
         <div class="k-panel sol-kpi-block">
-          <span class="sol-big-number" id="sol-today">–</span>
-          <span class="k-kpi-label">Energia oggi</span>
+          <span class="sol-big-number" id="sol-consumed">–</span>
+          <span class="k-kpi-label">Energia consumata</span>
         </div>
         <div class="k-panel sol-kpi-block">
-          <span class="sol-big-number" id="sol-month">–</span>
-          <span class="k-kpi-label">Energia questo mese</span>
+          <span class="sol-big-number" id="sol-selfcons">–</span>
+          <span class="k-kpi-label">Autoconsumo</span>
         </div>
         <div class="k-panel sol-kpi-block">
-          <span class="sol-big-number" id="sol-year">–</span>
-          <span class="k-kpi-label">Energia quest'anno</span>
+          <span class="sol-big-number" id="sol-grid">–</span>
+          <span class="k-kpi-label">Prelevata dalla rete</span>
         </div>
       </div>
 
       <div class="k-panel sol-chart-panel">
-        <h2 class="k-panel-title">Produzione di oggi</h2>
-        <p class="k-panel-sub">Potenza media per ora</p>
-        <div id="sol-chart" class="sol-chart-bars"></div>
+        <div class="sol-chart-head">
+          <div>
+            <h2 class="k-panel-title" id="sol-chart-title">Oggi — andamento orario</h2>
+            <p class="k-panel-sub">Produzione, autoconsumo e scambio con la rete</p>
+          </div>
+          <div class="sol-live-power">
+            <span class="sol-live-power-value" id="sol-power-live">–</span>
+            <span class="k-kpi-label">Potenza attuale</span>
+          </div>
+        </div>
+
+        <div class="sol-range-tabs" id="sol-range-tabs">
+          <button class="sol-range-tab sol-range-tab--active" data-range="today">Oggi</button>
+          <button class="sol-range-tab" data-range="last30">Ultimi 30 giorni</button>
+          <button class="sol-range-tab" data-range="monthly">Ultimi 12 mesi</button>
+        </div>
+
+        <div class="sol-flow-legend">
+          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--selfcons-up"></i>Verso l'edificio</span>
+          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--feedin"></i>Alla rete</span>
+          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--selfcons-down"></i>Dal sole</span>
+          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--purchased"></i>Dalla rete</span>
+        </div>
+
+        <div id="sol-chart" class="sol-flow-chart"></div>
       </div>
 
     </main>
@@ -70,6 +92,6 @@
   </div>
 
   <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
-  <script src="/kiosk-a7f3d9/solar.js?v=1"></script>
+  <script src="/kiosk-a7f3d9/solar.js?v=2"></script>
 </body>
 </html>

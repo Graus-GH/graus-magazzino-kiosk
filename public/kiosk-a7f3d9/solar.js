@@ -3,11 +3,25 @@
  */
 
 // SolarEdge's free API has a limited daily call budget per site — this
-// page makes 2 calls per refresh, so keep the interval generous (15 min =
-// ~192 calls/day, well under a typical ~300/day cap) rather than matching
-// the fleet dashboard's 60s refresh.
-const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+// page makes 4 calls per refresh (overview + 3 energyDetails ranges), so
+// the interval is longer than the fleet dashboard's 60s: ~20 min = ~288
+// calls/day, comfortably under a typical ~300/day cap.
+const REFRESH_INTERVAL_MS = 20 * 60 * 1000;
+const ROTATE_INTERVAL_MS = 30 * 1000; // no one can click on a TV — rotate views automatically
+const RESUME_AFTER_MANUAL_MS = 90 * 1000; // roughly one full 3-view cycle
+
+const RANGE_KEYS = ["today", "last30", "monthly"];
+const RANGE_TITLES = {
+  today: "Oggi — andamento orario",
+  last30: "Ultimi 30 giorni",
+  monthly: "Ultimi 12 mesi"
+};
+
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
+let latestData = null;
+let currentRangeIndex = 0;
+let rotateTimer = null;
+let resumeTimer = null;
 
 function fmtClock(d) {
   return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -30,26 +44,67 @@ function startClock() {
   el.textContent = fmtClock(new Date());
 }
 
-function renderKpis(data) {
-  document.getElementById("sol-power").textContent =
-    data.currentPowerKw != null ? data.currentPowerKw.toFixed(1) + " kW" : "n/d";
-  document.getElementById("sol-today").textContent =
-    data.todayEnergyKwh != null ? Math.round(data.todayEnergyKwh) + " kWh" : "n/d";
-  document.getElementById("sol-month").textContent =
-    data.monthEnergyKwh != null ? Math.round(data.monthEnergyKwh) + " kWh" : "n/d";
-  document.getElementById("sol-year").textContent =
-    data.yearEnergyKwh != null ? Math.round(data.yearEnergyKwh) + " kWh" : "n/d";
+function renderKpis(kpis) {
+  document.getElementById("sol-produced").textContent = kpis.productionKwh + " kWh";
+  document.getElementById("sol-consumed").textContent = kpis.consumptionKwh + " kWh";
+  document.getElementById("sol-selfcons").textContent =
+    kpis.selfConsumptionRate != null ? kpis.selfConsumptionRate + "%" : "n/d";
+  document.getElementById("sol-grid").textContent = kpis.purchasedKwh + " kWh";
 }
 
 function renderChart(chart) {
-  const maxKw = Math.max(1, ...chart.map(c => c.kw));
+  const maxVal = Math.max(1, ...chart.map(c => Math.max(c.production, c.consumption)));
+
   document.getElementById("sol-chart").innerHTML = chart.map(c => `
-    <div class="sol-chart-col">
-      <span class="sol-chart-value">${c.kw > 0 ? c.kw.toFixed(1) : ""}</span>
-      <div class="sol-chart-bar" style="height:${Math.round((c.kw / maxKw) * 100)}%"></div>
-      <span class="sol-chart-hour">${c.label}</span>
+    <div class="sol-flow-col">
+      <div class="sol-flow-up">
+        <div class="sol-flow-bar sol-flow-bar--selfcons-up" style="height:${Math.round((c.selfConsumption / maxVal) * 100)}%"></div>
+        <div class="sol-flow-bar sol-flow-bar--feedin" style="height:${Math.round((c.feedIn / maxVal) * 100)}%"></div>
+      </div>
+      <div class="sol-flow-mid"></div>
+      <div class="sol-flow-down">
+        <div class="sol-flow-bar sol-flow-bar--selfcons-down" style="height:${Math.round((c.selfConsumption / maxVal) * 100)}%"></div>
+        <div class="sol-flow-bar sol-flow-bar--purchased" style="height:${Math.round((c.purchased / maxVal) * 100)}%"></div>
+      </div>
+      <span class="sol-flow-label">${c.label}</span>
     </div>
   `).join("");
+}
+
+function showRange(index) {
+  currentRangeIndex = index;
+  const key = RANGE_KEYS[index];
+
+  document.querySelectorAll(".sol-range-tab").forEach(b =>
+    b.classList.toggle("sol-range-tab--active", b.dataset.range === key)
+  );
+  document.getElementById("sol-chart-title").textContent = RANGE_TITLES[key];
+
+  if (!latestData) return;
+  renderKpis(latestData.ranges[key].kpis);
+  renderChart(latestData.ranges[key].chart);
+}
+
+function advanceRange() {
+  showRange((currentRangeIndex + 1) % RANGE_KEYS.length);
+}
+
+function startRotation() {
+  if (rotateTimer) clearInterval(rotateTimer);
+  rotateTimer = setInterval(advanceRange, ROTATE_INTERVAL_MS);
+}
+
+function selectRangeManually(index) {
+  showRange(index);
+  if (rotateTimer) clearInterval(rotateTimer);
+  if (resumeTimer) clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(startRotation, RESUME_AFTER_MANUAL_MS);
+}
+
+function initRangeTabs() {
+  document.querySelectorAll(".sol-range-tab").forEach((btn, i) => {
+    btn.addEventListener("click", () => selectRangeManually(i));
+  });
 }
 
 async function refresh() {
@@ -59,8 +114,10 @@ async function refresh() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    renderKpis(data);
-    renderChart(data.chart);
+    latestData = data;
+    document.getElementById("sol-power-live").textContent =
+      data.currentPowerKw != null ? data.currentPowerKw.toFixed(1) + " kW" : "n/d";
+    showRange(currentRangeIndex);
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
   } catch (err) {
@@ -69,5 +126,7 @@ async function refresh() {
 }
 
 startClock();
+initRangeTabs();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);
+startRotation();
