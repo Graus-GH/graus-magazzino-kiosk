@@ -20,9 +20,10 @@ const { isHomeZone } = require("../lib/homeZone");
 const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
 const { getSpeedingRuleId } = require("../lib/speedingRule");
 const { parseDurationSeconds } = require("../lib/duration");
-const { getDiagnosticIds, getLatestStatusDataByDevice } = require("../lib/vehicleDiagnostics");
+const { getDiagnosticIds, getLatestStatusDataByDevice, getFuelConsumptionByDevice } = require("../lib/vehicleDiagnostics");
 
 const DIAGNOSTIC_LOOKBACK_MS = 48 * 60 * 60 * 1000; // devices don't all report fuel/odometer daily
+const FUEL_CONSUMPTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // matches MyGeotab's own "ultimi 30 giorni" widget
 
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 const MIN_STOP_SECONDS = 120; // ignore traffic lights / brief pauses
@@ -59,11 +60,11 @@ module.exports = async (req, res) => {
     const revealDrivers = isRevealRequested(req);
     const driverNameByDeviceId = revealDrivers ? await buildDriverNameMap(trips) : {};
 
-    // Fuel level / odometer / fuel economy — read straight from Geotab's
-    // StatusData, one lookup per diagnostic covering the whole fleet at
-    // once rather than per device. Whether these come back populated
-    // depends on what the installed hardware actually reports; missing
-    // data just means "n/d" for that vehicle, not a fetch error.
+    // Fuel level / odometer — read straight from Geotab's StatusData, one
+    // lookup per diagnostic covering the whole fleet at once rather than
+    // per device. Whether these come back populated depends on what the
+    // installed hardware actually reports; missing data just means "n/d"
+    // for that vehicle, not a fetch error.
     let fuelLevelByDevice = {};
     let odometerByDevice = {};
     let fuelEconomyByDevice = {};
@@ -73,7 +74,7 @@ module.exports = async (req, res) => {
       [fuelLevelByDevice, odometerByDevice, fuelEconomyByDevice] = await Promise.all([
         getLatestStatusDataByDevice(diagIds.fuelLevel, since),
         getLatestStatusDataByDevice(diagIds.odometer, since),
-        getLatestStatusDataByDevice(diagIds.fuelEconomy, since)
+        getFuelConsumptionByDevice(FUEL_CONSUMPTION_WINDOW_MS)
       ]);
     } catch (err) {
       console.error("Vehicle diagnostics fetch failed:", err.message);
@@ -182,7 +183,9 @@ module.exports = async (req, res) => {
       const odometerRaw = odometerByDevice[device.id] ? odometerByDevice[device.id].data : null;
       const odometerKm = odometerRaw == null ? null : Math.round(odometerRaw / 100) / 10;
 
-      const fuelEconomyRaw = fuelEconomyByDevice[device.id] ? fuelEconomyByDevice[device.id].data : null;
+      // Already computed as L/100km by getFuelConsumptionByDevice — unlike
+      // fuelLevel/odometer above, this isn't a raw StatusData record.
+      const fuelEconomy = fuelEconomyByDevice[device.id] != null ? fuelEconomyByDevice[device.id] : null;
 
       return {
         id: device.id,
@@ -204,7 +207,7 @@ module.exports = async (req, res) => {
         todayDrivingSeconds: Math.round(drivingSecondsByDevice[device.id] || 0),
         fuelLevelPercent,
         odometerKm,
-        fuelEconomy: fuelEconomyRaw == null ? null : Math.round(fuelEconomyRaw * 10) / 10
+        fuelEconomy
       };
     }));
 
