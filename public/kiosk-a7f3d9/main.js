@@ -406,10 +406,6 @@ function renderSpotlight(vehicle) {
     ${locationLine}
     <div class="k-spotlight-stats">
       <div>
-        <span class="k-spotlight-stat-value">${Math.round(vehicle.speed || 0)}</span>
-        <span class="k-spotlight-stat-label">km/h</span>
-      </div>
-      <div>
         <span class="k-spotlight-stat-value">${vehicle.todayDistanceKm || 0}</span>
         <span class="k-spotlight-stat-label">km oggi</span>
       </div>

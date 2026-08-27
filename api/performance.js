@@ -3,7 +3,7 @@
  *
  * Analytics for a selectable time range: ?range=week|month|year (default week).
  *   - week:  last 7 days,        daily buckets
- *   - month: current month,      weekly buckets (Sett. 1-5)
+ *   - month: current month,      weekly buckets (labeled by day-of-month range, e.g. "1–7")
  *   - year:  rolling 12 months,  monthly buckets
  *
  * Everything here comes from Trip data (distance, drivingDuration,
@@ -40,7 +40,18 @@ function buildRange(range, now) {
   return { from, days: 7 };
 }
 
-function bucketKeyAndLabel(range, tripStart, rangeFrom) {
+// "Sett. 1 / Sett. 2" (week-of-month index) reads as if it means something
+// calendar-wise (ISO week number, etc.) when it's really just "days
+// 1-7 of this month" — a plain day-of-month range is unambiguous instead.
+// elapsedDays clamps the last, still-in-progress week so it can't claim
+// days that haven't happened yet (or don't exist, e.g. "29-35" in Feb).
+function monthWeekLabel(weekIndex, elapsedDays) {
+  const startDay = (weekIndex - 1) * 7 + 1;
+  const endDay = Math.min(weekIndex * 7, elapsedDays);
+  return startDay === endDay ? String(startDay) : `${startDay}–${endDay}`;
+}
+
+function bucketKeyAndLabel(range, tripStart, rangeFrom, elapsedDays) {
   if (range === "year") {
     const key = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit" }).format(tripStart);
     return { key, label: romeMonthLabel(tripStart) };
@@ -49,7 +60,7 @@ function bucketKeyAndLabel(range, tripStart, rangeFrom) {
     const dayOfRange = Math.floor((tripStart - rangeFrom) / 86400000);
     const weekIndex = Math.floor(dayOfRange / 7) + 1;
     const key = "w" + weekIndex;
-    return { key, label: "Sett. " + weekIndex };
+    return { key, label: monthWeekLabel(weekIndex, elapsedDays) };
   }
   // week: one bucket per calendar day
   const key = dateKeyRome(tripStart);
@@ -95,7 +106,7 @@ module.exports = async (req, res) => {
       totalDrivingSeconds += drivingSec;
       totalIdlingSeconds += idlingSec;
 
-      const { key, label } = bucketKeyAndLabel(range, start, rangeFrom);
+      const { key, label } = bucketKeyAndLabel(range, start, rangeFrom, days);
       if (!buckets[key]) buckets[key] = { key, label, km: 0 };
       buckets[key].km += dist;
 
@@ -108,7 +119,7 @@ module.exports = async (req, res) => {
     if (range === "week") {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(startOfToday.getTime() - i * 86400000);
-        bucketOrder.push(bucketKeyAndLabel(range, d, rangeFrom).key);
+        bucketOrder.push(bucketKeyAndLabel(range, d, rangeFrom, days).key);
       }
     } else if (range === "month") {
       const totalWeeks = Math.ceil(days / 7);
@@ -121,14 +132,14 @@ module.exports = async (req, res) => {
     }
     const chart = bucketOrder.map(key => buckets[key]
       ? { label: buckets[key].label, km: Math.round(buckets[key].km * 10) / 10 }
-      : { label: fallbackLabel(range, key, rangeFrom, now), km: 0 });
+      : { label: fallbackLabel(range, key, rangeFrom, now, days), km: 0 });
 
-    function fallbackLabel(range, key, rangeFrom, now) {
+    function fallbackLabel(range, key, rangeFrom, now, elapsedDays) {
       if (range === "week") {
         const d = new Date(key + "T12:00:00");
         return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", weekday: "short" }).format(d);
       }
-      if (range === "month") return "Sett. " + key.replace("w", "");
+      if (range === "month") return monthWeekLabel(parseInt(key.replace("w", ""), 10), elapsedDays);
       const d = new Date(key + "-01T12:00:00");
       return romeMonthLabel(d);
     }
