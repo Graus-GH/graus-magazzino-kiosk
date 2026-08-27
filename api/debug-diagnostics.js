@@ -21,11 +21,25 @@ module.exports = async (req, res) => {
     ]);
 
     const allDiagnostics = await geotabCall("Get", { typeName: "Diagnostic", search: {}, resultsLimit: 50000 });
-    const nameSample = allDiagnostics
-      .filter(d => /fuel|carburante|odomet|contachilometri|consumo|economy|economia/i.test(d.name || ""))
+    const byId = {};
+    allDiagnostics.forEach(d => { byId[d.id] = d.name; });
+
+    const exactCandidates = allDiagnostics
+      .filter(d => {
+        const n = (d.name || "").toLowerCase();
+        return n === "fuel level (percentage)" || n === "fuel level" ||
+               n === "average fuel economy" ||
+               (n.includes("odometer") && !n.includes("adjustment") && !n.includes("second")) ||
+               n.includes("contachilometri") || n.includes("livello carburante") || n.includes("economia carburante");
+      })
       .map(d => ({ id: d.id, name: d.name }));
 
     res.status(200).json({
+      resolvedNames: {
+        fuelLevel: byId[diagIds.fuelLevel] || null,
+        odometer: byId[diagIds.odometer] || null,
+        fuelEconomy: byId[diagIds.fuelEconomy] || null
+      },
       diagIds,
       counts: {
         fuelLevel: Object.keys(fuelLevel).length,
@@ -38,7 +52,7 @@ module.exports = async (req, res) => {
         fuelEconomy: Object.values(fuelEconomy)[0] || null
       },
       totalDiagnostics: allDiagnostics.length,
-      matchingNameSample: nameSample
+      exactCandidates
     });
   } catch (err) {
     res.status(500).json({ error: err.message, stack: err.stack });
