@@ -45,7 +45,13 @@ module.exports = async (req, res) => {
       }
     }
 
-    res.status(200).json(results);
+    const recentTrips = await geotabCall("Get", {
+      typeName: "Trip",
+      search: { fromDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
+      resultsLimit: 5
+    });
+
+    res.status(200).json({ diagnosticCandidates: results, sampleTrips: recentTrips });
   } catch (err) {
     res.status(500).json({ error: err.message, stack: err.stack });
   }
