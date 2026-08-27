@@ -13,7 +13,23 @@ if (window.L) L.Browser.any3d = false;
 
 const REFRESH_INTERVAL_MS = 60 * 1000;
 const SPOTLIGHT_INTERVAL_MS = 15 * 1000;
+const TIP_ROTATE_MS = 30 * 1000;
 const CENTER = [46.55, 11.9]; // Alta Badia area
+
+const TIPS = [
+  "Un pneumatico sottogonfio di 0,5 bar può aumentare i consumi del 2-3%.",
+  "Un minuto di motore acceso a vuoto consuma quanto 200 metri percorsi — spegnere durante le soste lunghe aiuta tutti.",
+  "Pianificare le consegne per zona, quando possibile, riduce i chilometri complessivi della giornata.",
+  "Accelerazioni e frenate dolci riducono l'usura dei freni e i consumi di carburante.",
+  "Controllare specchietti e angoli ciechi prima di ogni manovra in retromarcia, specialmente in cortile.",
+  "Una manutenzione regolare del veicolo previene i fermi imprevisti più delle riparazioni last-minute.",
+  "Segnalare per tempo un problema al mezzo evita che diventi un guasto più costoso più avanti.",
+  "Controllare il carico prima di partire evita soste impreviste per sistemarlo lungo il percorso.",
+  "Mantenere la giusta distanza di sicurezza riduce il rischio di frenate brusche e incidenti.",
+  "Un abitacolo in ordine aiuta a reagire più rapidamente in caso di imprevisti.",
+  "Verificare livelli di olio e liquidi prima dei percorsi lunghi evita fermi imprevisti in strada.",
+  "Comunicare per tempo un ritardo evita attese inutili in magazzino."
+];
 
 // Driver names only load if the URL has ?key=... matching DRIVER_REVEAL_KEY
 // on the server. Nobody sees this on the normal kiosk URL.
@@ -265,6 +281,15 @@ function renderKpis(vehicles, totalDrivingSeconds, totalIdlingSeconds, todaySpee
   document.getElementById("kpiv-speeding").textContent = speedingText;
 }
 
+function startTips() {
+  const el = document.getElementById("k-tip-text");
+  if (!el) return;
+  let index = Math.floor(Math.random() * TIPS.length);
+  const show = () => { el.textContent = TIPS[index]; index = (index + 1) % TIPS.length; };
+  show();
+  setInterval(show, TIP_ROTATE_MS);
+}
+
 function statusColor(state) {
   return state === "moving" ? "#34d399" : state === "stopped" ? "#fbbf24" : "#64748b";
 }
@@ -500,6 +525,7 @@ async function refresh() {
 }
 
 startClock();
+startTips();
 initMap();
 initSpotlightMap();
 refresh();
