@@ -10,6 +10,13 @@
 
 /* ---------- Range tabs ---------- */
 
+.p-range-tabs-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .p-range-tabs {
   display: flex;
   gap: 8px;
@@ -245,7 +252,7 @@ html.k-portrait .p-main {
   padding: 16px 22px 18px;
 }
 
-html.k-portrait .p-range-tabs {
+html.k-portrait .p-range-tabs-wrap {
   grid-column: 1 / 4;
   grid-row: 1;
 }

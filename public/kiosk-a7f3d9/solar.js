@@ -44,6 +44,27 @@ function startClock() {
   el.textContent = fmtClock(new Date());
 }
 
+// Restarts the blue countdown bar's fill animation from 0% over
+// `durationMs` — called each time a new auto-rotation cycle begins.
+function startRotateProgress(elId, durationMs) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove("k-rotate-progress-fill--animating");
+  el.style.animationDuration = durationMs + "ms";
+  void el.offsetWidth; // force reflow so the animation restarts from 0%
+  el.classList.add("k-rotate-progress-fill--animating");
+}
+
+// Stops the bar and empties it — used while rotation is paused (e.g. after
+// a manual click), so it doesn't keep animating a cycle that isn't
+// actually happening.
+function stopRotateProgress(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove("k-rotate-progress-fill--animating");
+  el.style.width = "0%";
+}
+
 function renderKpis(kpis) {
   document.getElementById("sol-produced").textContent = kpis.productionKwh + " kWh";
   document.getElementById("sol-consumed").textContent = kpis.consumptionKwh + " kWh";
@@ -87,17 +108,20 @@ function showRange(index) {
 
 function advanceRange() {
   showRange((currentRangeIndex + 1) % RANGE_KEYS.length);
+  startRotateProgress("sol-rotate-fill", ROTATE_INTERVAL_MS);
 }
 
 function startRotation() {
   if (rotateTimer) clearInterval(rotateTimer);
   rotateTimer = setInterval(advanceRange, ROTATE_INTERVAL_MS);
+  startRotateProgress("sol-rotate-fill", ROTATE_INTERVAL_MS);
 }
 
 function selectRangeManually(index) {
   showRange(index);
   if (rotateTimer) clearInterval(rotateTimer);
   if (resumeTimer) clearTimeout(resumeTimer);
+  stopRotateProgress("sol-rotate-fill");
   resumeTimer = setTimeout(startRotation, RESUME_AFTER_MANUAL_MS);
 }
 

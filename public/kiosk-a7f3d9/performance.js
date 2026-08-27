@@ -4,9 +4,18 @@
 
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 const TIP_ROTATE_MS = 30 * 1000;
+// Nobody clicks Settimana/Mese/Anno on a TV, so — same idea as
+// Fotovoltaico's Oggi/30gg/12mesi — the three views rotate on their own;
+// still manually clickable (e.g. from an office PC), which pauses rotation
+// and resumes it after roughly one full cycle.
+const ROTATE_INTERVAL_MS = 30 * 1000;
+const RESUME_AFTER_MANUAL_MS = 90 * 1000;
+const RANGE_KEYS = ["week", "month", "year"];
 
 let currentRange = "week";
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
+let rotateTimer = null;
+let resumeTimer = null;
 
 const driverKey = new URLSearchParams(window.location.search).get("key");
 
@@ -60,6 +69,27 @@ function startTips() {
   const show = () => { el.textContent = TIPS[index]; index = (index + 1) % TIPS.length; };
   show();
   setInterval(show, TIP_ROTATE_MS);
+}
+
+// Restarts the blue countdown bar's fill animation from 0% over
+// `durationMs` — called each time a new auto-rotation cycle begins.
+function startRotateProgress(elId, durationMs) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove("k-rotate-progress-fill--animating");
+  el.style.animationDuration = durationMs + "ms";
+  void el.offsetWidth; // force reflow so the animation restarts from 0%
+  el.classList.add("k-rotate-progress-fill--animating");
+}
+
+// Stops the bar and empties it — used while rotation is paused (e.g. after
+// a manual click), so it doesn't keep animating a cycle that isn't
+// actually happening.
+function stopRotateProgress(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove("k-rotate-progress-fill--animating");
+  el.style.width = "0%";
 }
 
 function renderKpis(totals) {
@@ -162,13 +192,34 @@ async function refresh() {
   }
 }
 
+function showRange(key) {
+  currentRange = key;
+  document.querySelectorAll(".p-range-tab").forEach(b => b.classList.toggle("p-range-tab--active", b.dataset.range === key));
+  refresh();
+}
+
+function advanceRange() {
+  showRange(RANGE_KEYS[(RANGE_KEYS.indexOf(currentRange) + 1) % RANGE_KEYS.length]);
+  startRotateProgress("p-rotate-fill", ROTATE_INTERVAL_MS);
+}
+
+function startRotation() {
+  if (rotateTimer) clearInterval(rotateTimer);
+  rotateTimer = setInterval(advanceRange, ROTATE_INTERVAL_MS);
+  startRotateProgress("p-rotate-fill", ROTATE_INTERVAL_MS);
+}
+
+function selectRangeManually(key) {
+  showRange(key);
+  if (rotateTimer) clearInterval(rotateTimer);
+  if (resumeTimer) clearTimeout(resumeTimer);
+  stopRotateProgress("p-rotate-fill");
+  resumeTimer = setTimeout(startRotation, RESUME_AFTER_MANUAL_MS);
+}
+
 function initRangeTabs() {
   document.querySelectorAll(".p-range-tab").forEach(btn => {
-    btn.addEventListener("click", () => {
-      currentRange = btn.dataset.range;
-      document.querySelectorAll(".p-range-tab").forEach(b => b.classList.toggle("p-range-tab--active", b === btn));
-      refresh();
-    });
+    btn.addEventListener("click", () => selectRangeManually(btn.dataset.range));
   });
 }
 
@@ -177,3 +228,4 @@ startTips();
 initRangeTabs();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);
+startRotation();

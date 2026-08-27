@@ -656,6 +656,50 @@ html, body {
   margin-bottom: 0;
 }
 
+.k-roster-eta {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--graus-blue);
+  white-space: nowrap;
+}
+
+/* ---------- Rotation progress bar ----------
+ * Shared by every auto-rotating view (map dashboard's vehicle spotlight,
+ * Performance's Settimana/Mese/Anno, Fotovoltaico's Oggi/30gg/12mesi): a
+ * thin bar that fills left-to-right over one rotation interval so a
+ * passive TV viewer can see when it's about to switch. JS restarts the
+ * fill animation (see startRotateProgress()/stopRotateProgress(), one copy
+ * per page script) each time a new cycle begins, and stops/empties it
+ * while rotation is paused for a manual interaction. */
+
+.k-rotate-progress {
+  height: 3px;
+  background: rgba(58, 160, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.k-rotate-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--graus-blue);
+  border-radius: 2px;
+}
+
+@keyframes k-rotate-fill {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.k-rotate-progress-fill--animating {
+  animation-name: k-rotate-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 /* ---------- Footer / countdown ---------- */
 
 .k-countdown-sep {

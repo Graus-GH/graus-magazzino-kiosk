@@ -60,6 +60,7 @@ let spotlightIsSatellite = false;
 let spotlightMarker;
 let spotlightTimer = null;
 let resumeTimer = null;
+let rosterEtaByVehicle = {}; // id -> "In sede" | "~Nm" | null, filled in async per refresh()
 
 function initMap() {
   map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
@@ -155,6 +156,7 @@ function initSpotlightMap() {
   spotlightMap.on("dragstart zoomstart", () => {
     if (spotlightTimer) clearInterval(spotlightTimer);
     if (resumeTimer) clearTimeout(resumeTimer);
+    stopRotateProgress("k-spotlight-rotate-fill");
     resumeTimer = setTimeout(startSpotlightRotation, 30 * 1000);
   });
 
@@ -229,6 +231,50 @@ async function fetchReturnEtaMinutes(lat, lng) {
     console.error("Errore calcolo tempo di rientro:", err);
   }
   return null;
+}
+
+// Restarts the blue countdown bar's fill animation from 0% over
+// `durationMs` — called each time a new auto-rotation cycle begins.
+function startRotateProgress(elId, durationMs) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove("k-rotate-progress-fill--animating");
+  el.style.animationDuration = durationMs + "ms";
+  void el.offsetWidth; // force reflow so the animation restarts from 0%
+  el.classList.add("k-rotate-progress-fill--animating");
+}
+
+// Stops the bar and empties it — used while rotation is paused (e.g. after
+// a manual click), so it doesn't keep animating a cycle that isn't
+// actually happening.
+function stopRotateProgress(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove("k-rotate-progress-fill--animating");
+  el.style.width = "0%";
+}
+
+// Compact "return to base" label for one roster row: "In sede" needs no
+// routing call (same home-radius shortcut as the spotlight card), anything
+// further away gets a real OSRM estimate. Returns null (row shows nothing)
+// if the vehicle has no position.
+async function computeRosterEtaLabel(vehicle) {
+  if (!vehicle.latitude || !vehicle.longitude) return null;
+  const distToHome = haversineMeters(vehicle.latitude, vehicle.longitude, HOME_BASE.lat, HOME_BASE.lng);
+  if (distToHome <= HOME_BASE_RADIUS_M) return "In sede";
+  const minutes = await fetchReturnEtaMinutes(vehicle.latitude, vehicle.longitude);
+  return minutes != null ? `~${fmtDuration(minutes * 60)}` : null;
+}
+
+// Refreshes every vehicle's roster ETA in parallel, then re-renders once
+// they're all in — runs alongside the main data refresh() (not on every
+// renderRoster() call, e.g. from spotlight rotation, which would otherwise
+// hammer the routing server far more than needed).
+async function refreshRosterEtas(vehicles) {
+  const withPosition = vehicles.filter(v => v.latitude && v.longitude);
+  const entries = await Promise.all(withPosition.map(async v => [v.id, await computeRosterEtaLabel(v)]));
+  entries.forEach(([id, label]) => { rosterEtaByVehicle[id] = label; });
+  renderRoster(currentVehicles);
 }
 
 function startClock() {
@@ -360,12 +406,15 @@ function renderRoster(vehicles) {
     const statusText = v.state === "moving" ? "In movimento" : v.state === "stopped" ? "Fermo" : "Offline";
     const isActive = v.id === activeVehicleId;
     const clickable = v.latitude && v.longitude;
+    const etaLabel = rosterEtaByVehicle[v.id];
+    const etaHtml = etaLabel ? `<span class="k-roster-eta">🕒 ${etaLabel}</span>` : "";
     return `
       <div class="k-roster-row ${isActive ? "k-roster-row--active" : ""} ${clickable ? "k-roster-row--clickable" : ""}"
            ${clickable ? `onclick="selectVehicleManually('${v.id}')"` : ""}>
         ${rosterIconHtml(v)}
         <span class="k-roster-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
         <span class="k-spotlight-status k-spotlight-status--${v.state}">${statusText}</span>
+        ${etaHtml}
       </div>
     `;
   }).join("");
@@ -473,11 +522,13 @@ function advanceSpotlight() {
   if (!withPosition.length) return;
   spotlightIndex = (spotlightIndex + 1) % withPosition.length;
   renderSpotlight(withPosition[spotlightIndex]);
+  startRotateProgress("k-spotlight-rotate-fill", SPOTLIGHT_INTERVAL_MS);
 }
 
 function startSpotlightRotation() {
   if (spotlightTimer) clearInterval(spotlightTimer);
   spotlightTimer = setInterval(advanceSpotlight, SPOTLIGHT_INTERVAL_MS);
+  startRotateProgress("k-spotlight-rotate-fill", SPOTLIGHT_INTERVAL_MS);
 }
 
 // Called when someone clicks a vehicle in the "Stato flotta" roster:
@@ -493,6 +544,7 @@ function selectVehicleManually(vehicleId) {
 
   if (spotlightTimer) clearInterval(spotlightTimer);
   if (resumeTimer) clearTimeout(resumeTimer);
+  stopRotateProgress("k-spotlight-rotate-fill");
   resumeTimer = setTimeout(startSpotlightRotation, 30 * 1000);
 }
 
@@ -507,6 +559,7 @@ async function refresh() {
     renderKpis(currentVehicles, data.totalDrivingSeconds, data.totalIdlingSeconds, data.todaySpeedingEvents, data.speedingAvailable);
     renderMap(currentVehicles);
     renderRoster(currentVehicles);
+    refreshRosterEtas(currentVehicles);
 
     const withPosition = currentVehicles.filter(v => v.latitude && v.longitude);
     if (withPosition.length) {
