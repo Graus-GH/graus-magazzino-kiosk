@@ -5,13 +5,12 @@
 
 const { getDiagnosticIds, getLatestStatusDataByDevice } = require("../lib/vehicleDiagnostics");
 
-const LOOKBACK_MS = 48 * 60 * 60 * 1000;
-
 module.exports = async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   try {
+    const lookbackDays = Number(req.query && req.query.days) || 2;
     const diagIds = await getDiagnosticIds();
-    const since = new Date(Date.now() - LOOKBACK_MS);
+    const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
     const [fuelLevel, odometer, fuelEconomy] = await Promise.all([
       getLatestStatusDataByDevice(diagIds.fuelLevel, since),
