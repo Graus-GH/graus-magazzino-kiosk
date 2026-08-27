@@ -468,7 +468,7 @@ function renderSpotlight(vehicle) {
       </div>
       <div>
         <span class="k-spotlight-stat-value">${fmtFuelEconomy(vehicle.fuelEconomy)}</span>
-        <span class="k-spotlight-stat-label">consumo l/100km</span>
+        <span class="k-spotlight-stat-label">consumo l/100km (media 30gg)</span>
       </div>
     </div>
     <div class="k-spotlight-eta" id="k-spotlight-eta">Rientro in sede: calcolo…</div>
