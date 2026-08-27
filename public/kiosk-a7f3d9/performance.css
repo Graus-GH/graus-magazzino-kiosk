@@ -314,6 +314,13 @@ html.k-portrait .p-ranking-value {
   font-size: 11px;
 }
 
+/* Top-align like the idling/speeding lists next to it, instead of
+   landscape's vertical centering — the portrait column is much taller
+   than a short vehicle list needs, and centering left an odd empty gap. */
+html.k-portrait .p-ranking-bars {
+  justify-content: flex-start;
+}
+
 html.k-portrait .p-trend .k-panel-title,
 html.k-portrait .p-ranking .k-panel-title,
 html.k-portrait .p-idling .k-panel-title,
