@@ -6,12 +6,12 @@
  * (manually or via auto-rotation) without a network round-trip in between,
  * so everything is precomputed here and the client just swaps which one it
  * renders.
- *   - week:  last 7 days,        daily buckets
- *   - month: current month,      weekly buckets, Monday-Sunday (GRAUS's own
- *            week start), labeled by the day-of-month range that actually
- *            falls in this month, e.g. "1–7" or just "1" for a short first
- *            week
- *   - year:  rolling 12 months,  monthly buckets
+ *   - week:  last 7 days,          daily buckets
+ *   - month: last 5 Mon-Sun weeks (GRAUS's own week start), rolling — not
+ *            pinned to the calendar month, so it always shows 5 full
+ *            buckets regardless of today's date instead of just one
+ *            sliver of a bucket on the 2nd of the month
+ *   - year:  rolling 12 months,    monthly buckets
  *
  * Trip data is fetched ONCE for the widest (365-day) window — week's and
  * month's windows are both subsets of it — then filtered in memory per
@@ -20,54 +20,50 @@
  */
 
 const { geotabCall } = require("../lib/geotabClient");
-const { startOfDayRome, startOfMonthRome, dateKeyRome, startOfDateStringRome, addDaysRome, startOfWeekRome } = require("../lib/timezone");
+const { startOfDayRome, dateKeyRome, startOfDateStringRome, addDaysRome, startOfWeekRome } = require("../lib/timezone");
 const { parseDurationSeconds } = require("../lib/duration");
 const { cleanName } = require("../lib/cleanName");
 const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
 
 const TRIP_RESULTS_LIMIT = 50000;
 const RANGE_KEYS = ["week", "month", "year"];
+const MONTH_WEEKS = 5;
 
 function romeMonthLabel(date) {
   return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", month: "short" }).format(date);
 }
 
+function romeShortDate(date) {
+  return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "numeric", month: "numeric" }).format(date);
+}
+
 function rangeFromFor(range, now) {
   if (range === "year") return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-  if (range === "month") return startOfMonthRome(now);
+  if (range === "month") return addDaysRome(startOfWeekRome(now), -(MONTH_WEEKS - 1) * 7);
   return new Date(startOfDayRome(now).getTime() - 6 * 24 * 60 * 60 * 1000); // week
 }
 
-function domNumber(dateAtRomeMidnight, monthStart) {
-  return Math.round((dateAtRomeMidnight - monthStart) / 86400000) + 1;
-}
-
-// Label for the days of `weekStart`'s Mon-Sun week that actually fall
-// within this month and have already elapsed — a plain day-of-month range
-// (e.g. "1–7") reads unambiguously, unlike a "week number" that looks like
-// it might mean something calendar-wide (ISO week, etc.) when it doesn't.
-// elapsedDays doubles as "today's day-of-month number" here, since
-// monthStart is always the 1st.
-function monthWeekLabel(weekStart, monthStart, elapsedDays) {
+// "8/9–14/9" for a Mon-Sun week — a plain date range instead of a "week
+// number" that looks like it might mean something calendar-wide (ISO
+// week, etc.) when it doesn't. The trailing, still-in-progress week is
+// clipped to today rather than claiming days that haven't happened yet.
+function weekRangeLabel(weekStart, now) {
   const weekEnd = addDaysRome(weekStart, 6);
-  const displayStart = weekStart < monthStart ? monthStart : weekStart;
-  const startDay = domNumber(displayStart, monthStart);
-  const endDay = Math.min(domNumber(weekEnd, monthStart), elapsedDays);
-  return startDay === endDay ? String(startDay) : `${startDay}–${endDay}`;
+  const todayMidnight = startOfDayRome(now);
+  const displayEnd = weekEnd < todayMidnight ? weekEnd : todayMidnight;
+  return `${romeShortDate(weekStart)}–${romeShortDate(displayEnd)}`;
 }
 
-function bucketKeyAndLabel(range, tripStart, rangeFrom, elapsedDays) {
+function bucketKeyAndLabel(range, tripStart, rangeFrom, now) {
   if (range === "year") {
     const key = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit" }).format(tripStart);
     return { key, label: romeMonthLabel(tripStart) };
   }
   if (range === "month") {
     // GRAUS's week starts Monday — bucket by the real Mon-Sun calendar
-    // week the trip falls in, not by "days since the 1st of the month"
-    // (which drifts off actual weeks whenever the month doesn't start on
-    // a Monday).
+    // week the trip falls in.
     const weekStart = startOfWeekRome(tripStart);
-    return { key: dateKeyRome(weekStart), label: monthWeekLabel(weekStart, rangeFrom, elapsedDays) };
+    return { key: dateKeyRome(weekStart), label: weekRangeLabel(weekStart, now) };
   }
   // week: one bucket per calendar day
   const key = dateKeyRome(tripStart);
@@ -75,12 +71,12 @@ function bucketKeyAndLabel(range, tripStart, rangeFrom, elapsedDays) {
   return { key, label };
 }
 
-function fallbackLabel(range, key, rangeFrom, elapsedDays) {
+function fallbackLabel(range, key, now) {
   if (range === "week") {
     const d = new Date(key + "T12:00:00");
     return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", weekday: "short" }).format(d);
   }
-  if (range === "month") return monthWeekLabel(startOfDateStringRome(key), rangeFrom, elapsedDays);
+  if (range === "month") return weekRangeLabel(startOfDateStringRome(key), now);
   const d = new Date(key + "-01T12:00:00");
   return romeMonthLabel(d);
 }
@@ -106,7 +102,7 @@ function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, devices, re
     totalDrivingSeconds += drivingSec;
     totalIdlingSeconds += idlingSec;
 
-    const { key, label } = bucketKeyAndLabel(range, start, rangeFrom, elapsedDays);
+    const { key, label } = bucketKeyAndLabel(range, start, rangeFrom, now);
     if (!buckets[key]) buckets[key] = { key, label, km: 0 };
     buckets[key].km += dist;
 
@@ -121,7 +117,7 @@ function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, devices, re
     const startOfToday = startOfDayRome(now);
     for (let i = 6; i >= 0; i--) {
       const d = new Date(startOfToday.getTime() - i * 86400000);
-      bucketOrder.push(bucketKeyAndLabel(range, d, rangeFrom, elapsedDays).key);
+      bucketOrder.push(bucketKeyAndLabel(range, d, rangeFrom, now).key);
     }
   } else if (range === "month") {
     let weekStart = startOfWeekRome(rangeFrom);
@@ -138,7 +134,7 @@ function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, devices, re
   }
   const chart = bucketOrder.map(key => buckets[key]
     ? { label: buckets[key].label, km: Math.round(buckets[key].km * 10) / 10 }
-    : { label: fallbackLabel(range, key, rangeFrom, elapsedDays), km: 0 });
+    : { label: fallbackLabel(range, key, now), km: 0 });
 
   const kmPerVehicle = devices
     .map(d => ({

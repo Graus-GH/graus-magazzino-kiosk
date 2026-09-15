@@ -32,7 +32,7 @@ const TIPS = [
 
 const RANGE_TITLES = {
   week: "Andamento — ultimi 7 giorni",
-  month: "Andamento — questo mese",
+  month: "Andamento — ultime 5 settimane",
   year: "Andamento — ultimi 12 mesi"
 };
 
@@ -146,8 +146,10 @@ function renderRanking(kmPerVehicle) {
   container.innerHTML = kmPerVehicle.map(v => `
     <div class="p-ranking-row">
       <span class="p-ranking-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
-      <div class="p-ranking-track"><div class="p-ranking-fill" style="width:${Math.round((v.km / maxKm) * 100)}%"></div></div>
-      <span class="p-ranking-value">${v.km} km</span>
+      <div class="p-ranking-track-row">
+        <div class="p-ranking-track"><div class="p-ranking-fill" style="width:${Math.round((v.km / maxKm) * 100)}%"></div></div>
+        <span class="p-ranking-value">${v.km} km</span>
+      </div>
     </div>
   `).join("");
 }

@@ -140,18 +140,19 @@
 
 .p-ranking-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .p-ranking-name {
-  width: 120px;
-  flex-shrink: 0;
   font-size: 13px;
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.p-ranking-track-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .p-ranking-track {
@@ -318,29 +319,28 @@ html.k-portrait .p-idling {
 }
 
 html.k-portrait .p-ranking-name {
-  width: 96px;
-  font-size: 14px;
-}
-
-html.k-portrait .p-ranking-value {
-  width: 56px;
-  font-size: 13px;
-}
-
-html.k-portrait .p-trend-value {
   font-size: 15px;
 }
 
+html.k-portrait .p-ranking-value {
+  width: 72px;
+  font-size: 17px;
+}
+
+html.k-portrait .p-trend-value {
+  font-size: 19px;
+}
+
 html.k-portrait .p-trend-day {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 html.k-portrait .p-row-name {
-  font-size: 16px;
+  font-size: 17px;
 }
 
 html.k-portrait .p-row-detail {
-  font-size: 14px;
+  font-size: 18px;
 }
 
 html.k-portrait .p-ranking-track {
