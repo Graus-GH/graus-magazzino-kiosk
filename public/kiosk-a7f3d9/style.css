@@ -815,13 +815,15 @@ html, body {
  * Activated by layoutMode.js, either via ?layout=verticale (forced, for the
  * Samsung signage TV) or real orientation detection. Own arrangement,
  * independent from the landscape grid above:
+ *   [ KPIs — full width, first thing under the header ]
  *   [ Big map — full width ]
- *   [ Stato flotta | Cartina di dettaglio ]
- *   [              | Dati di dettaglio    ]
- *   [ KPIs — full width, compact, one row ]
- * i.e. the map leads (primary content), the roster sits beside the detail
- * map+data column matched to its height, and the KPI strip sits at the
- * bottom under Stato flotta instead of leading at the top.
+ *   [ Cartina di dettaglio | Dati di dettaglio ]
+ * "Stato flotta" is dropped entirely here — read from a few meters away
+ * on a TV, a scrolling list of small text rows was the least legible
+ * piece on screen, and every vehicle's state is already visible as a
+ * colored dot/label on the big map. Dropping it freed up the room spent
+ * enlarging everything else. It still shows on the office-PC landscape
+ * layout, where it's clickable and at a readable distance.
  */
 
 html.k-portrait,
@@ -832,7 +834,7 @@ html.k-portrait body {
 html.k-portrait .k-main {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto minmax(0, 1.5fr) minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 16px;
   padding: 20px 24px 24px;
   overflow-y: auto;
@@ -843,22 +845,20 @@ html.k-portrait .k-kpis {
   display: none;
 }
 
-html.k-portrait .k-quadrant--map-big {
-  grid-column: 1 / 3;
-  grid-row: 1;
-  height: 28vh;
-  min-height: 220px;
+html.k-portrait .k-quadrant--roster {
+  display: none;
 }
 
-html.k-portrait .k-quadrant--roster {
-  grid-column: 1;
-  grid-row: 2 / 4;
-  min-height: 260px;
+html.k-portrait .k-quadrant--map-big {
+  grid-column: 1 / 3;
+  grid-row: 2;
+  height: 32vh;
+  min-height: 240px;
 }
 
 html.k-portrait .k-quadrant--map-detail {
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 1;
+  grid-row: 3;
 }
 
 /* Landscape keeps the detail map small/square (see base rule above); in
@@ -875,41 +875,104 @@ html.k-portrait .k-spotlight-map-wrap {
 html.k-portrait .k-quadrant--detail-data {
   grid-column: 2;
   grid-row: 3;
-  min-height: 160px;
+  min-height: 260px;
 }
 
-/* Compact KPI strip — one row, fixed/bounded height so it can't silently
-   grow into the space the panels above need. */
+/* The detail card no longer has to squeeze under the mini-map in a short
+   row shared with Stato flotta — it gets a full, taller row to itself now,
+   so bump every size up to actually use that room from TV distance. */
+html.k-portrait .k-quadrant--detail-data .k-spotlight-name {
+  font-size: 26px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-status {
+  font-size: 15px;
+  padding: 4px 12px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-location {
+  font-size: 16px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-stat-value {
+  font-size: 30px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-stat-label {
+  font-size: 13px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-eta {
+  font-size: 18px;
+  margin-top: 20px;
+}
+
+/* This panel's own content (name, status, stats, ETA) is much shorter
+   than the tall cell the grid now gives it — center it instead of
+   leaving it stuck at the top with a visible gap of empty panel below. */
+html.k-portrait .k-quadrant--detail-data .k-panel--grow {
+  justify-content: center;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-name {
+  margin-bottom: 12px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-status {
+  margin-bottom: 20px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-spotlight-stats {
+  gap: 20px 24px;
+}
+
+/* KPI strip — now the first thing under the header, so it gets more
+   height (and much bigger type) than when it was squeezed in at the
+   bottom of the old layout. Still one bounded row so it can't grow into
+   the map's space. */
 html.k-portrait .k-kpis-portrait {
   display: grid;
   grid-column: 1 / 3;
-  grid-row: 4;
+  grid-row: 1;
   grid-template-columns: repeat(5, 1fr);
   gap: 12px;
-  height: 16vh;
-  min-height: 160px;
+  height: 20vh;
+  min-height: 190px;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi {
-  padding: 12px 10px;
+  padding: 14px 10px;
   border-radius: 12px;
-  gap: 4px;
+  gap: 6px;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-value {
-  font-size: 30px;
+  font-size: 36px;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-label {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.25;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-states-top .k-kpi-value {
-  font-size: 28px;
+  font-size: 34px;
+}
+
+html.k-portrait .k-kpis-portrait .k-kpi-state {
+  font-size: 15px;
+}
+
+html.k-portrait .k-kpis-portrait .k-kpi-state b {
+  font-size: 18px;
+}
+
+html.k-portrait .k-kpis-portrait .k-dot {
+  width: 15px;
+  height: 15px;
 }
 
 /* Rotating tip strip — same idea as Performance & Squadra's, one compact
@@ -919,7 +982,7 @@ html.k-portrait .k-tip {
   align-items: center;
   gap: 12px;
   grid-column: 1 / 3;
-  grid-row: 5;
+  grid-row: 4;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 14px;
