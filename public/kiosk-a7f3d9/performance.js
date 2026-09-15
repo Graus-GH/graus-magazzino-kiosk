@@ -81,25 +81,27 @@ function startTips() {
   setInterval(show, TIP_ROTATE_MS);
 }
 
-// Restarts the blue countdown bar's fill animation from 0% over
-// `durationMs` — called each time a new auto-rotation cycle begins.
+// Restarts the ring's fill animation from empty over `durationMs` —
+// called each time a new auto-rotation cycle begins. Same little wheel
+// used for the vehicle spotlight on the map dashboard, driving an SVG
+// circle's stroke-dashoffset instead of a bar's width.
 function startRotateProgress(elId, durationMs) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.classList.remove("k-rotate-progress-fill--animating");
+  el.classList.remove("k-rotate-ring-fg--animating");
   el.style.animationDuration = durationMs + "ms";
-  void el.offsetWidth; // force reflow so the animation restarts from 0%
-  el.classList.add("k-rotate-progress-fill--animating");
+  void el.getBBox(); // force reflow (SVG equivalent of offsetWidth) so the animation restarts from empty
+  el.classList.add("k-rotate-ring-fg--animating");
 }
 
-// Stops the bar and empties it — used while rotation is paused (e.g. after
-// a manual click), so it doesn't keep animating a cycle that isn't
+// Stops the ring and empties it — used while rotation is paused (e.g.
+// after a manual click), so it doesn't keep animating a cycle that isn't
 // actually happening.
 function stopRotateProgress(elId) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.classList.remove("k-rotate-progress-fill--animating");
-  el.style.width = "0%";
+  el.classList.remove("k-rotate-ring-fg--animating");
+  el.style.strokeDashoffset = "94.2";
 }
 
 function renderKpis(totals) {
@@ -200,20 +202,20 @@ function showRange(key) {
 
 function advanceRange() {
   showRange(RANGE_KEYS[(RANGE_KEYS.indexOf(currentRange) + 1) % RANGE_KEYS.length]);
-  startRotateProgress("p-rotate-fill", ROTATE_INTERVAL_MS);
+  startRotateProgress("p-rotate-ring", ROTATE_INTERVAL_MS);
 }
 
 function startRotation() {
   if (rotateTimer) clearInterval(rotateTimer);
   rotateTimer = setInterval(advanceRange, ROTATE_INTERVAL_MS);
-  startRotateProgress("p-rotate-fill", ROTATE_INTERVAL_MS);
+  startRotateProgress("p-rotate-ring", ROTATE_INTERVAL_MS);
 }
 
 function selectRangeManually(key) {
   showRange(key);
   if (rotateTimer) clearInterval(rotateTimer);
   if (resumeTimer) clearTimeout(resumeTimer);
-  stopRotateProgress("p-rotate-fill");
+  stopRotateProgress("p-rotate-ring");
   resumeTimer = setTimeout(startRotation, RESUME_AFTER_MANUAL_MS);
 }
 

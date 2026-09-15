@@ -19,8 +19,13 @@
 
 .p-range-tabs {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.p-range-tabs .k-rotate-icon {
+  margin-left: 4px;
 }
 
 .p-range-tab {
@@ -260,6 +265,11 @@ html.k-portrait .p-kpis {
 html.k-portrait .p-range-tab {
   font-size: 16px;
   padding: 9px 22px;
+}
+
+html.k-portrait .p-range-tabs .k-rotate-icon {
+  width: 28px;
+  height: 28px;
 }
 
 html.k-portrait .p-kpi-block {
