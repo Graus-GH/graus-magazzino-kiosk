@@ -700,6 +700,61 @@ html, body {
   animation-fill-mode: forwards;
 }
 
+/* Vehicle-spotlight rotation indicator — a small ring that fills clockwise
+   around a car icon instead of the plain bar used elsewhere, since this
+   one sits right under the vehicle card rather than a row of tabs. Same
+   restart-the-animation trick as .k-rotate-progress-fill, just driven by
+   stroke-dashoffset instead of width. */
+.k-rotate-icon {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  margin: 4px auto 0;
+}
+
+.k-rotate-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.k-rotate-ring-bg,
+.k-rotate-ring-fg {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.k-rotate-ring-bg {
+  stroke: rgba(58, 160, 255, 0.18);
+}
+
+.k-rotate-ring-fg {
+  stroke: var(--graus-blue);
+  stroke-linecap: round;
+  stroke-dasharray: 94.2; /* 2 * pi * r(15) */
+  stroke-dashoffset: 94.2;
+}
+
+@keyframes k-rotate-ring-fill {
+  from { stroke-dashoffset: 94.2; }
+  to { stroke-dashoffset: 0; }
+}
+
+.k-rotate-ring-fg--animating {
+  animation-name: k-rotate-ring-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.k-rotate-icon-glyph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
 /* ---------- Footer / countdown ---------- */
 
 .k-countdown-sep {
@@ -882,28 +937,28 @@ html.k-portrait .k-quadrant--detail-data {
    row shared with Stato flotta — it gets a full, taller row to itself now,
    so bump every size up to actually use that room from TV distance. */
 html.k-portrait .k-quadrant--detail-data .k-spotlight-name {
-  font-size: 26px;
+  font-size: 32px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-status {
-  font-size: 15px;
-  padding: 4px 12px;
+  font-size: 17px;
+  padding: 5px 14px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-location {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-stat-value {
-  font-size: 30px;
+  font-size: 38px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-stat-label {
-  font-size: 13px;
+  font-size: 15px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-eta {
-  font-size: 18px;
+  font-size: 21px;
   margin-top: 20px;
 }
 
@@ -951,29 +1006,29 @@ html.k-portrait .k-kpis-portrait .k-kpi {
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-value {
-  font-size: 36px;
+  font-size: 44px;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-label {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.25;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-states-top .k-kpi-value {
-  font-size: 34px;
+  font-size: 40px;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-state {
-  font-size: 15px;
+  font-size: 17px;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi-state b {
-  font-size: 18px;
+  font-size: 21px;
 }
 
 html.k-portrait .k-kpis-portrait .k-dot {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 /* Rotating tip strip — same idea as Performance & Squadra's, one compact

@@ -156,7 +156,7 @@ function initSpotlightMap() {
   spotlightMap.on("dragstart zoomstart", () => {
     if (spotlightTimer) clearInterval(spotlightTimer);
     if (resumeTimer) clearTimeout(resumeTimer);
-    stopRotateProgress("k-spotlight-rotate-fill");
+    stopRotateProgress("k-spotlight-rotate-ring");
     resumeTimer = setTimeout(startSpotlightRotation, 30 * 1000);
   });
 
@@ -233,25 +233,26 @@ async function fetchReturnEtaMinutes(lat, lng) {
   return null;
 }
 
-// Restarts the blue countdown bar's fill animation from 0% over
-// `durationMs` — called each time a new auto-rotation cycle begins.
+// Restarts the car-icon ring's fill animation from empty over `durationMs`
+// — called each time a new auto-rotation cycle begins. Drives the SVG
+// circle's stroke-dashoffset rather than a bar's width.
 function startRotateProgress(elId, durationMs) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.classList.remove("k-rotate-progress-fill--animating");
+  el.classList.remove("k-rotate-ring-fg--animating");
   el.style.animationDuration = durationMs + "ms";
-  void el.offsetWidth; // force reflow so the animation restarts from 0%
-  el.classList.add("k-rotate-progress-fill--animating");
+  void el.getBBox(); // force reflow (SVG equivalent of offsetWidth) so the animation restarts from empty
+  el.classList.add("k-rotate-ring-fg--animating");
 }
 
-// Stops the bar and empties it — used while rotation is paused (e.g. after
-// a manual click), so it doesn't keep animating a cycle that isn't
+// Stops the ring and empties it — used while rotation is paused (e.g.
+// after a manual click), so it doesn't keep animating a cycle that isn't
 // actually happening.
 function stopRotateProgress(elId) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.classList.remove("k-rotate-progress-fill--animating");
-  el.style.width = "0%";
+  el.classList.remove("k-rotate-ring-fg--animating");
+  el.style.strokeDashoffset = "94.2";
 }
 
 // Compact "return to base" label for one roster row: "In sede" needs no
@@ -522,13 +523,13 @@ function advanceSpotlight() {
   if (!withPosition.length) return;
   spotlightIndex = (spotlightIndex + 1) % withPosition.length;
   renderSpotlight(withPosition[spotlightIndex]);
-  startRotateProgress("k-spotlight-rotate-fill", SPOTLIGHT_INTERVAL_MS);
+  startRotateProgress("k-spotlight-rotate-ring", SPOTLIGHT_INTERVAL_MS);
 }
 
 function startSpotlightRotation() {
   if (spotlightTimer) clearInterval(spotlightTimer);
   spotlightTimer = setInterval(advanceSpotlight, SPOTLIGHT_INTERVAL_MS);
-  startRotateProgress("k-spotlight-rotate-fill", SPOTLIGHT_INTERVAL_MS);
+  startRotateProgress("k-spotlight-rotate-ring", SPOTLIGHT_INTERVAL_MS);
 }
 
 // Called when someone clicks a vehicle in the "Stato flotta" roster:
@@ -544,7 +545,7 @@ function selectVehicleManually(vehicleId) {
 
   if (spotlightTimer) clearInterval(spotlightTimer);
   if (resumeTimer) clearTimeout(resumeTimer);
-  stopRotateProgress("k-spotlight-rotate-fill");
+  stopRotateProgress("k-spotlight-rotate-ring");
   resumeTimer = setTimeout(startSpotlightRotation, 30 * 1000);
 }
 
