@@ -852,8 +852,8 @@ html.k-portrait .k-quadrant--roster {
 html.k-portrait .k-quadrant--map-big {
   grid-column: 1 / 3;
   grid-row: 2;
-  height: 32vh;
-  min-height: 240px;
+  height: 42vh;
+  min-height: 300px;
 }
 
 html.k-portrait .k-quadrant--map-detail {
@@ -875,7 +875,7 @@ html.k-portrait .k-spotlight-map-wrap {
 html.k-portrait .k-quadrant--detail-data {
   grid-column: 2;
   grid-row: 3;
-  min-height: 260px;
+  min-height: 220px;
 }
 
 /* The detail card no longer has to squeeze under the mini-map in a short
@@ -926,22 +926,23 @@ html.k-portrait .k-quadrant--detail-data .k-spotlight-stats {
   gap: 20px 24px;
 }
 
-/* KPI strip — now the first thing under the header, so it gets more
-   height (and much bigger type) than when it was squeezed in at the
-   bottom of the old layout. Still one bounded row so it can't grow into
-   the map's space. */
+/* KPI strip — now the first thing under the header, with much bigger type
+   than the old bottom-row version. Its content is centered and doesn't
+   need a tall box, so keep it fairly compact — the height freed up here
+   (and a third of the detail row's, see .k-quadrant--map-big) goes to the
+   big map instead, the actually useful element on a passive TV. */
 html.k-portrait .k-kpis-portrait {
   display: grid;
   grid-column: 1 / 3;
   grid-row: 1;
   grid-template-columns: repeat(5, 1fr);
   gap: 12px;
-  height: 20vh;
-  min-height: 190px;
+  height: 14vh;
+  min-height: 150px;
 }
 
 html.k-portrait .k-kpis-portrait .k-kpi {
-  padding: 14px 10px;
+  padding: 10px;
   border-radius: 12px;
   gap: 6px;
   display: flex;
