@@ -451,7 +451,15 @@ function renderSpotlight(vehicle) {
     : "";
 
   body.innerHTML = `
-    <div class="k-spotlight-name">${vehicle.name}${vehicle.driverName ? `<span class="s-driver-badge">${vehicle.driverName}</span>` : ""}</div>
+    <div class="k-spotlight-name-row">
+      <div class="k-rotate-icon" id="k-spotlight-rotate-icon" title="Prossimo veicolo">
+        <svg class="k-rotate-ring" viewBox="0 0 36 36">
+          <circle class="k-rotate-ring-bg" cx="18" cy="18" r="15"></circle>
+          <circle class="k-rotate-ring-fg" id="k-spotlight-rotate-ring" cx="18" cy="18" r="15"></circle>
+        </svg>
+      </div>
+      <span class="k-spotlight-name">${vehicle.name}${vehicle.driverName ? `<span class="s-driver-badge">${vehicle.driverName}</span>` : ""}</span>
+    </div>
     <span class="k-spotlight-status k-spotlight-status--${vehicle.state}">${statusLabel}</span>
     ${locationLine}
     <div class="k-spotlight-stats">

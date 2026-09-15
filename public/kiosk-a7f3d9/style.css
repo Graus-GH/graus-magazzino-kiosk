@@ -479,10 +479,16 @@ html, body {
 
 /* ---------- Spotlight (rotating vehicle detail) ---------- */
 
+.k-spotlight-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
 .k-spotlight-name {
   font-size: 22px;
   font-weight: 700;
-  margin-bottom: 8px;
 }
 
 .k-spotlight-map {
@@ -700,16 +706,16 @@ html, body {
   animation-fill-mode: forwards;
 }
 
-/* Vehicle-spotlight rotation indicator — a small ring that fills clockwise
-   around a car icon instead of the plain bar used elsewhere, since this
-   one sits right under the vehicle card rather than a row of tabs. Same
-   restart-the-animation trick as .k-rotate-progress-fill, just driven by
-   stroke-dashoffset instead of width. */
+/* Vehicle-spotlight rotation indicator — a small ring that fills clockwise,
+   sitting right before the vehicle name instead of the plain bar used
+   elsewhere (Performance/Fotovoltaico's tabs). Same restart-the-animation
+   trick as .k-rotate-progress-fill, just driven by stroke-dashoffset
+   instead of width. */
 .k-rotate-icon {
   position: relative;
-  width: 34px;
-  height: 34px;
-  margin: 4px auto 0;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .k-rotate-ring {
@@ -721,7 +727,7 @@ html, body {
 .k-rotate-ring-bg,
 .k-rotate-ring-fg {
   fill: none;
-  stroke-width: 2.5;
+  stroke-width: 4;
 }
 
 .k-rotate-ring-bg {
@@ -744,15 +750,6 @@ html, body {
   animation-name: k-rotate-ring-fill;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
-}
-
-.k-rotate-icon-glyph {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
 }
 
 /* ---------- Footer / countdown ---------- */
@@ -940,6 +937,11 @@ html.k-portrait .k-quadrant--detail-data .k-spotlight-name {
   font-size: 32px;
 }
 
+html.k-portrait .k-quadrant--detail-data .k-rotate-icon {
+  width: 28px;
+  height: 28px;
+}
+
 html.k-portrait .k-quadrant--detail-data .k-spotlight-status {
   font-size: 17px;
   padding: 5px 14px;
@@ -962,14 +964,7 @@ html.k-portrait .k-quadrant--detail-data .k-spotlight-eta {
   margin-top: 20px;
 }
 
-/* This panel's own content (name, status, stats, ETA) is much shorter
-   than the tall cell the grid now gives it — center it instead of
-   leaving it stuck at the top with a visible gap of empty panel below. */
-html.k-portrait .k-quadrant--detail-data .k-panel--grow {
-  justify-content: center;
-}
-
-html.k-portrait .k-quadrant--detail-data .k-spotlight-name {
+html.k-portrait .k-quadrant--detail-data .k-spotlight-name-row {
   margin-bottom: 12px;
 }
 
