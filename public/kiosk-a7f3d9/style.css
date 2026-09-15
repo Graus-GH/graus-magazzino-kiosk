@@ -688,6 +688,14 @@ html, body {
   flex-shrink: 0;
 }
 
+/* A bit thicker on TV portrait (Performance, Fotovoltaico) — same reason
+   as every other font/element bumped for that distance: 3px reads as
+   basically invisible from across a room. */
+html.k-portrait .k-rotate-progress {
+  height: 6px;
+  border-radius: 3px;
+}
+
 .k-rotate-progress-fill {
   height: 100%;
   width: 0%;

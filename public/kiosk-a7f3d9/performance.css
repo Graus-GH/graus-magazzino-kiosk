@@ -257,13 +257,22 @@ html.k-portrait .p-kpis {
   gap: 10px;
 }
 
+html.k-portrait .p-range-tab {
+  font-size: 16px;
+  padding: 9px 22px;
+}
+
 html.k-portrait .p-kpi-block {
-  padding: 10px;
-  gap: 2px;
+  padding: 12px;
+  gap: 4px;
 }
 
 html.k-portrait .p-big-number {
-  font-size: 28px;
+  font-size: 36px;
+}
+
+html.k-portrait .p-kpi-block .k-kpi-label {
+  font-size: 16px;
 }
 
 html.k-portrait .p-mid-row,
@@ -299,13 +308,33 @@ html.k-portrait .p-idling {
 }
 
 html.k-portrait .p-ranking-name {
-  width: 88px;
-  font-size: 12px;
+  width: 96px;
+  font-size: 14px;
 }
 
 html.k-portrait .p-ranking-value {
-  width: 48px;
-  font-size: 11px;
+  width: 56px;
+  font-size: 13px;
+}
+
+html.k-portrait .p-trend-value {
+  font-size: 15px;
+}
+
+html.k-portrait .p-trend-day {
+  font-size: 14px;
+}
+
+html.k-portrait .p-row-name {
+  font-size: 16px;
+}
+
+html.k-portrait .p-row-detail {
+  font-size: 14px;
+}
+
+html.k-portrait .p-ranking-track {
+  height: 20px;
 }
 
 /* Top-align like the idling list next to it, instead of landscape's
@@ -318,22 +347,22 @@ html.k-portrait .p-ranking-bars {
 html.k-portrait .p-trend .k-panel-title,
 html.k-portrait .p-ranking .k-panel-title,
 html.k-portrait .p-idling .k-panel-title {
-  font-size: 15px;
+  font-size: 18px;
   margin-bottom: 2px;
 }
 
 html.k-portrait .p-trend .k-panel-sub,
 html.k-portrait .p-ranking .k-panel-sub,
 html.k-portrait .p-idling .k-panel-sub {
-  font-size: 11px;
+  font-size: 13px;
   margin-bottom: 6px;
 }
 
 html.k-portrait .p-tip {
   padding: 10px 16px;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 html.k-portrait .p-tip-icon {
-  font-size: 18px;
+  font-size: 20px;
 }
