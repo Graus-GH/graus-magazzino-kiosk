@@ -16,6 +16,8 @@ let currentRange = "week";
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 let rotateTimer = null;
 let resumeTimer = null;
+let rangesData = null; // { week, month, year } — all fetched at once, see refresh()
+let speedingRuleName = null;
 
 const driverKey = new URLSearchParams(window.location.search).get("key");
 
@@ -33,6 +35,15 @@ const RANGE_TITLES = {
   week: "Andamento — ultimi 7 giorni",
   month: "Andamento — questo mese",
   year: "Andamento — ultimi 12 mesi"
+};
+
+// Appended to every KPI label so it's never ambiguous which period the
+// numbers refer to — especially important once the view rotates on its
+// own and a glance needs to place the numbers immediately.
+const RANGE_KPI_SUFFIX = {
+  week: "Settimana",
+  month: "Mese",
+  year: "Anno"
 };
 
 function fmtClock(d) {
@@ -93,10 +104,15 @@ function stopRotateProgress(elId) {
 }
 
 function renderKpis(totals) {
+  const suffix = RANGE_KPI_SUFFIX[currentRange];
   document.getElementById("p-total-km").textContent = totals.km;
+  document.getElementById("p-total-km-label").textContent = `Km totali (${suffix})`;
   document.getElementById("p-avg-km").textContent = totals.avgKmPerDay;
+  document.getElementById("p-avg-km-label").textContent = `Km/giorno media (${suffix})`;
   document.getElementById("p-driving-hours").textContent = fmtDuration(totals.drivingHoursSeconds);
+  document.getElementById("p-driving-hours-label").textContent = `Ore di guida (${suffix})`;
   document.getElementById("p-idling-hours").textContent = fmtDuration(totals.idlingHoursSeconds);
+  document.getElementById("p-idling-hours-label").textContent = `Ore motore da fermo (${suffix})`;
 }
 
 function renderTrend(chart) {
@@ -173,18 +189,19 @@ function renderSpeeding(speeding, available, ruleName) {
   `).join("");
 }
 
+// Fetches all three ranges in one call and caches them — switching ranges
+// (manually or via auto-rotation) then just re-renders from rangesData
+// with no network wait, see showRange() below.
 async function refresh() {
   try {
-    const resp = await fetch("/api/performance?range=" + currentRange + (driverKey ? "&key=" + encodeURIComponent(driverKey) : ""));
+    const resp = await fetch("/api/performance" + (driverKey ? "?key=" + encodeURIComponent(driverKey) : ""));
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
-    renderKpis(data.totals);
-    renderTrend(data.chart);
-    renderRanking(data.kmPerVehicle);
-    renderIdling(data.idling);
-    renderSpeeding(data.speeding, data.speedingAvailable, data.speedingRuleName);
+    rangesData = data.ranges;
+    speedingRuleName = data.speedingRuleName;
+    renderCurrentRange();
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
   } catch (err) {
@@ -192,10 +209,20 @@ async function refresh() {
   }
 }
 
+function renderCurrentRange() {
+  if (!rangesData) return; // first refresh() hasn't landed yet
+  const data = rangesData[currentRange];
+  renderKpis(data.totals);
+  renderTrend(data.chart);
+  renderRanking(data.kmPerVehicle);
+  renderIdling(data.idling);
+  renderSpeeding(data.speeding, data.speedingAvailable, speedingRuleName);
+}
+
 function showRange(key) {
   currentRange = key;
   document.querySelectorAll(".p-range-tab").forEach(b => b.classList.toggle("p-range-tab--active", b.dataset.range === key));
-  refresh();
+  renderCurrentRange();
 }
 
 function advanceRange() {
