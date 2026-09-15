@@ -17,7 +17,6 @@ let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 let rotateTimer = null;
 let resumeTimer = null;
 let rangesData = null; // { week, month, year } — all fetched at once, see refresh()
-let speedingRuleName = null;
 
 const driverKey = new URLSearchParams(window.location.search).get("key");
 
@@ -165,30 +164,6 @@ function renderIdling(idling) {
   `).join("");
 }
 
-function renderSpeeding(speeding, available, ruleName) {
-  const sub = document.getElementById("p-speeding-sub");
-  const container = document.getElementById("p-speeding-list");
-
-  if (!available) {
-    sub.textContent = `Regola "${ruleName}" non trovata in Geotab`;
-    container.innerHTML = '<p class="k-empty">Verifica che la regola sia attiva in MyGeotab (Amministrazione → Regole e Gruppi).</p>';
-    return;
-  }
-
-  sub.textContent = "Attivato quando si supera il limite stradale di almeno il 20% per 5+ secondi (regola Geotab)";
-
-  if (!speeding.length) {
-    container.innerHTML = '<p class="k-empty">Nessun dato disponibile.</p>';
-    return;
-  }
-  container.innerHTML = speeding.map(v => `
-    <div class="p-speeding-row ${v.eventCount > 0 ? "p-speeding-row--flagged" : ""}">
-      <span class="p-row-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
-      <span class="p-row-detail">${v.eventCount > 0 ? `${v.eventCount} event${v.eventCount === 1 ? "o" : "i"} · ${fmtDuration(v.totalDurationSeconds)}` : "Nessun eccesso"}</span>
-    </div>
-  `).join("");
-}
-
 // Fetches all three ranges in one call and caches them — switching ranges
 // (manually or via auto-rotation) then just re-renders from rangesData
 // with no network wait, see showRange() below.
@@ -200,7 +175,6 @@ async function refresh() {
     if (data.error) throw new Error(data.error);
 
     rangesData = data.ranges;
-    speedingRuleName = data.speedingRuleName;
     renderCurrentRange();
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
@@ -216,7 +190,6 @@ function renderCurrentRange() {
   renderTrend(data.chart);
   renderRanking(data.kmPerVehicle);
   renderIdling(data.idling);
-  renderSpeeding(data.speeding, data.speedingAvailable, speedingRuleName);
 }
 
 function showRange(key) {

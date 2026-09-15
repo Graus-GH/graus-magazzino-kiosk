@@ -7,21 +7,23 @@
  * so everything is precomputed here and the client just swaps which one it
  * renders.
  *   - week:  last 7 days,        daily buckets
- *   - month: current month,      weekly buckets (labeled by day-of-month range, e.g. "1–7")
+ *   - month: current month,      weekly buckets, Monday-Sunday (GRAUS's own
+ *            week start), labeled by the day-of-month range that actually
+ *            falls in this month, e.g. "1–7" or just "1" for a short first
+ *            week
  *   - year:  rolling 12 months,  monthly buckets
  *
- * Trip and ExceptionEvent data is fetched ONCE for the widest (365-day)
- * window — week's and month's windows are both subsets of it — then
- * filtered in memory per range, rather than querying Geotab three times
- * for heavily overlapping data.
+ * Trip data is fetched ONCE for the widest (365-day) window — week's and
+ * month's windows are both subsets of it — then filtered in memory per
+ * range, rather than querying Geotab three times for heavily overlapping
+ * data.
  */
 
 const { geotabCall } = require("../lib/geotabClient");
-const { startOfDayRome, startOfMonthRome, dateKeyRome } = require("../lib/timezone");
+const { startOfDayRome, startOfMonthRome, dateKeyRome, startOfDateStringRome, addDaysRome, startOfWeekRome } = require("../lib/timezone");
 const { parseDurationSeconds } = require("../lib/duration");
 const { cleanName } = require("../lib/cleanName");
 const { isRevealRequested, buildDriverNameMap } = require("../lib/driverReveal");
-const { getSpeedingRuleId, SPEEDING_RULE_NAME } = require("../lib/speedingRule");
 
 const TRIP_RESULTS_LIMIT = 50000;
 const RANGE_KEYS = ["week", "month", "year"];
@@ -36,14 +38,21 @@ function rangeFromFor(range, now) {
   return new Date(startOfDayRome(now).getTime() - 6 * 24 * 60 * 60 * 1000); // week
 }
 
-// "Sett. 1 / Sett. 2" (week-of-month index) reads as if it means something
-// calendar-wise (ISO week number, etc.) when it's really just "days
-// 1-7 of this month" — a plain day-of-month range is unambiguous instead.
-// elapsedDays clamps the last, still-in-progress week so it can't claim
-// days that haven't happened yet (or don't exist, e.g. "29-35" in Feb).
-function monthWeekLabel(weekIndex, elapsedDays) {
-  const startDay = (weekIndex - 1) * 7 + 1;
-  const endDay = Math.min(weekIndex * 7, elapsedDays);
+function domNumber(dateAtRomeMidnight, monthStart) {
+  return Math.round((dateAtRomeMidnight - monthStart) / 86400000) + 1;
+}
+
+// Label for the days of `weekStart`'s Mon-Sun week that actually fall
+// within this month and have already elapsed — a plain day-of-month range
+// (e.g. "1–7") reads unambiguously, unlike a "week number" that looks like
+// it might mean something calendar-wide (ISO week, etc.) when it doesn't.
+// elapsedDays doubles as "today's day-of-month number" here, since
+// monthStart is always the 1st.
+function monthWeekLabel(weekStart, monthStart, elapsedDays) {
+  const weekEnd = addDaysRome(weekStart, 6);
+  const displayStart = weekStart < monthStart ? monthStart : weekStart;
+  const startDay = domNumber(displayStart, monthStart);
+  const endDay = Math.min(domNumber(weekEnd, monthStart), elapsedDays);
   return startDay === endDay ? String(startDay) : `${startDay}–${endDay}`;
 }
 
@@ -53,10 +62,12 @@ function bucketKeyAndLabel(range, tripStart, rangeFrom, elapsedDays) {
     return { key, label: romeMonthLabel(tripStart) };
   }
   if (range === "month") {
-    const dayOfRange = Math.floor((tripStart - rangeFrom) / 86400000);
-    const weekIndex = Math.floor(dayOfRange / 7) + 1;
-    const key = "w" + weekIndex;
-    return { key, label: monthWeekLabel(weekIndex, elapsedDays) };
+    // GRAUS's week starts Monday — bucket by the real Mon-Sun calendar
+    // week the trip falls in, not by "days since the 1st of the month"
+    // (which drifts off actual weeks whenever the month doesn't start on
+    // a Monday).
+    const weekStart = startOfWeekRome(tripStart);
+    return { key: dateKeyRome(weekStart), label: monthWeekLabel(weekStart, rangeFrom, elapsedDays) };
   }
   // week: one bucket per calendar day
   const key = dateKeyRome(tripStart);
@@ -64,20 +75,20 @@ function bucketKeyAndLabel(range, tripStart, rangeFrom, elapsedDays) {
   return { key, label };
 }
 
-function fallbackLabel(range, key, elapsedDays) {
+function fallbackLabel(range, key, rangeFrom, elapsedDays) {
   if (range === "week") {
     const d = new Date(key + "T12:00:00");
     return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", weekday: "short" }).format(d);
   }
-  if (range === "month") return monthWeekLabel(parseInt(key.replace("w", ""), 10), elapsedDays);
+  if (range === "month") return monthWeekLabel(startOfDateStringRome(key), rangeFrom, elapsedDays);
   const d = new Date(key + "-01T12:00:00");
   return romeMonthLabel(d);
 }
 
-// Builds the full { totals, chart, kmPerVehicle, idling, speeding } payload
-// for one range, given trips/events already filtered down to that range's
-// window (see the single wide fetch in the handler below).
-function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, events, devices, revealDrivers, driverNameByDeviceId, speedingAvailable) {
+// Builds the full { totals, chart, kmPerVehicle, idling } payload for one
+// range, given trips already filtered down to that range's window (see the
+// single wide fetch in the handler below).
+function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, devices, revealDrivers, driverNameByDeviceId) {
   let totalKm = 0;
   let totalDrivingSeconds = 0;
   let totalIdlingSeconds = 0;
@@ -113,8 +124,12 @@ function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, events, dev
       bucketOrder.push(bucketKeyAndLabel(range, d, rangeFrom, elapsedDays).key);
     }
   } else if (range === "month") {
-    const totalWeeks = Math.ceil(elapsedDays / 7);
-    for (let i = 1; i <= totalWeeks; i++) bucketOrder.push("w" + i);
+    let weekStart = startOfWeekRome(rangeFrom);
+    const lastWeekStart = startOfWeekRome(now);
+    while (weekStart <= lastWeekStart) {
+      bucketOrder.push(dateKeyRome(weekStart));
+      weekStart = addDaysRome(weekStart, 7);
+    }
   } else {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -123,7 +138,7 @@ function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, events, dev
   }
   const chart = bucketOrder.map(key => buckets[key]
     ? { label: buckets[key].label, km: Math.round(buckets[key].km * 10) / 10 }
-    : { label: fallbackLabel(range, key, elapsedDays), km: 0 });
+    : { label: fallbackLabel(range, key, rangeFrom, elapsedDays), km: 0 });
 
   const kmPerVehicle = devices
     .map(d => ({
@@ -141,28 +156,6 @@ function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, events, dev
     }))
     .sort((a, b) => a.idlingSeconds - b.idlingSeconds);
 
-  // Speeding: Geotab's own "Eccesso di velocità (nuova versione)" rule,
-  // which compares actual speed against the posted road speed limit —
-  // triggers at 20%+ over the limit for 5+ seconds. Events are pre-filtered
-  // to this range's window by the caller.
-  const byDevice = {};
-  events.forEach(e => {
-    const id = e.device && e.device.id;
-    if (!id) return;
-    if (!byDevice[id]) byDevice[id] = { eventCount: 0, totalDurationSeconds: 0 };
-    byDevice[id].eventCount += 1;
-    const durSec = (new Date(e.activeTo) - new Date(e.activeFrom)) / 1000;
-    if (isFinite(durSec) && durSec > 0) byDevice[id].totalDurationSeconds += durSec;
-  });
-  const speeding = devices
-    .map(d => ({
-      name: cleanName(d.name),
-      driverName: revealDrivers ? (driverNameByDeviceId[d.id] || null) : undefined,
-      eventCount: (byDevice[d.id] || {}).eventCount || 0,
-      totalDurationSeconds: Math.round((byDevice[d.id] || {}).totalDurationSeconds || 0)
-    }))
-    .sort((a, b) => b.eventCount - a.eventCount);
-
   return {
     totals: {
       km: Math.round(totalKm),
@@ -172,9 +165,7 @@ function buildRangeResult(range, rangeFrom, elapsedDays, now, trips, events, dev
     },
     chart,
     kmPerVehicle,
-    idling,
-    speeding,
-    speedingAvailable
+    idling
   };
 }
 
@@ -183,7 +174,6 @@ module.exports = async (req, res) => {
 
   try {
     const now = new Date();
-    const startOfToday = startOfDayRome(now);
     const widestFrom = rangeFromFor("year", now); // 365 days back — a superset of week's and month's windows
 
     const [devices, trips] = await Promise.all([
@@ -198,27 +188,6 @@ module.exports = async (req, res) => {
     const revealDrivers = isRevealRequested(req);
     const driverNameByDeviceId = revealDrivers ? await buildDriverNameMap(trips) : {};
 
-    let allEvents = [];
-    let speedingAvailable = false;
-    try {
-      const ruleId = await getSpeedingRuleId();
-      if (ruleId) {
-        speedingAvailable = true;
-        allEvents = await geotabCall("Get", {
-          typeName: "ExceptionEvent",
-          search: {
-            ruleSearch: { id: ruleId },
-            fromDate: widestFrom.toISOString(),
-            toDate: now.toISOString()
-          }
-        });
-      } else {
-        console.error("Speeding rule not found by name:", SPEEDING_RULE_NAME);
-      }
-    } catch (err) {
-      console.error("Speeding via ExceptionEvent failed:", err.message);
-    }
-
     const ranges = {};
     RANGE_KEYS.forEach(range => {
       const rangeFrom = rangeFromFor(range, now);
@@ -227,18 +196,12 @@ module.exports = async (req, res) => {
         : 7;
 
       const scopedTrips = trips.filter(t => new Date(t.start) >= rangeFrom);
-      const scopedEvents = allEvents.filter(e => new Date(e.activeFrom) >= rangeFrom);
 
-      ranges[range] = buildRangeResult(
-        range, rangeFrom, elapsedDays, now,
-        scopedTrips, scopedEvents, devices,
-        revealDrivers, driverNameByDeviceId, speedingAvailable
-      );
+      ranges[range] = buildRangeResult(range, rangeFrom, elapsedDays, now, scopedTrips, devices, revealDrivers, driverNameByDeviceId);
     });
 
     res.status(200).json({
       generatedAt: now.toISOString(),
-      speedingRuleName: SPEEDING_RULE_NAME,
       ranges
     });
   } catch (err) {
