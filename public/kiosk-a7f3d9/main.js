@@ -47,20 +47,8 @@ const SPOTLIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const SPOTLIGHT_SATELLITE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SPOTLIGHT_ZOOM = 16;
 
-// Live traffic overlay (TomTom) — big overview map only, not the small
-// vehicle-detail map, to keep well within TomTom's free tier (200k tile
-// requests/month). Redrawn periodically rather than on every 60s data
-// refresh (which would only re-fetch tiles anyway if the view actually
-// pans/zooms) — traffic doesn't need per-minute freshness, and a 15-minute
-// cycle keeps this comfortably under budget even with a few screens open
-// at once. Fails silently (no layer, no error) if TOMTOM_API_KEY isn't
-// set yet — see api/tomtom-key.js.
-const TOMTOM_TRAFFIC_URL_BASE = "https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png";
-const TRAFFIC_REFRESH_MS = 15 * 60 * 1000;
-
 let map;
 let tileLayer;
-let trafficLayer;
 let markersByDevice = {}; // id -> Leaflet marker
 let currentVehicles = [];
 let spotlightIndex = 0;
@@ -89,7 +77,6 @@ function initMap() {
     if (!map) return;
     map.invalidateSize();
     if (tileLayer) tileLayer.redraw();
-    if (trafficLayer) trafficLayer.redraw();
   };
   setTimeout(refreshMapSize, 300);
   setTimeout(refreshMapSize, 1200);
@@ -97,26 +84,6 @@ function initMap() {
     document.fonts.ready.then(refreshMapSize);
   }
   window.addEventListener("resize", refreshMapSize);
-}
-
-async function initTrafficLayer() {
-  try {
-    const resp = await fetch("/api/tomtom-key");
-    const data = await resp.json();
-    if (!data.key) return; // not configured yet — no layer, no error
-
-    trafficLayer = L.tileLayer(TOMTOM_TRAFFIC_URL_BASE + "?key=" + encodeURIComponent(data.key) + "&thickness=10", {
-      maxZoom: 19,
-      opacity: 0.75
-    }).addTo(map);
-
-    const attributionEl = document.getElementById("k-traffic-attribution");
-    if (attributionEl) attributionEl.hidden = false;
-
-    setInterval(() => { if (trafficLayer) trafficLayer.redraw(); }, TRAFFIC_REFRESH_MS);
-  } catch (err) {
-    console.error("Errore caricamento layer traffico:", err);
-  }
 }
 
 // Hides overlapping vehicle-name labels (keeping the colored shape always
@@ -618,7 +585,6 @@ async function refresh() {
 startClock();
 startTips();
 initMap();
-initTrafficLayer();
 initSpotlightMap();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);
