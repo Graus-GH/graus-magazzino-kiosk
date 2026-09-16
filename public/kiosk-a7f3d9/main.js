@@ -105,7 +105,10 @@ async function initTrafficLayer() {
     const data = await resp.json();
     if (!data.key) return; // not configured yet — no layer, no error
 
-    trafficLayer = L.tileLayer(TOMTOM_TRAFFIC_URL_BASE + "?key=" + encodeURIComponent(data.key) + "&thickness=10", {
+    // No &thickness= here — that param 400s on the relative0 style we use
+    // (only supported on absolute/relative/relative-delay/etc.); the
+    // default thickness (10) applies either way.
+    trafficLayer = L.tileLayer(TOMTOM_TRAFFIC_URL_BASE + "?key=" + encodeURIComponent(data.key), {
       maxZoom: 19,
       opacity: 0.75
     }).addTo(map);
