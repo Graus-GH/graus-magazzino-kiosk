@@ -300,6 +300,18 @@ html, body {
   font-weight: 600;
 }
 
+.k-traffic-attribution {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  z-index: 500;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(11, 15, 22, 0.6);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
 .k-legend-item {
   display: flex;
   align-items: center;
