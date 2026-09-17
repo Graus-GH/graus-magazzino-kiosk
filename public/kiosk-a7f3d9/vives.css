@@ -8,12 +8,15 @@
  */
 
 :root {
-  --v-navy: #101f3d;
-  --v-navy-soft: #2c3d63;
-  --v-blue: #2f6fed;
-  --v-paper: #fbfaf7;
-  --v-border: #e7e3da;
-  --v-muted: #6b7280;
+  /* Exact GRAUS brand palette (from the real graus.bz.it/vives design system),
+     not an approximation — dolomiti-navy / graus-blue / sky are their names. */
+  --v-navy: #0e1b32;
+  --v-navy-soft: #46505f;
+  --v-blue: #005caa;
+  --v-sky: #7fb0dc;
+  --v-paper: #f4f7fb;
+  --v-border: #e3e8ef;
+  --v-muted: #7a8696;
 }
 
 * { box-sizing: border-box; }
@@ -32,12 +35,77 @@ html, body {
   flex-direction: column;
 }
 
-.v-banner {
+/* ---------- Hero header ----------
+ * Mirrors the real site's navy hero: rising "bollicine" bubbles + a soft
+ * glow circle behind a small eyebrow + the VIVES! wordmark (a white-on-
+ * transparent logo, so it only reads correctly over this dark band).
+ */
+
+.v-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--v-navy);
+  flex-shrink: 0;
+}
+
+.v-hero-bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.v-hero-bubbles span {
+  position: absolute;
+  bottom: -160px;
+  border-radius: 50%;
+  background: rgba(127, 176, 220, 0.14);
+  border: 1px solid rgba(127, 176, 220, 0.35);
+  animation-name: v-bubble-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes v-bubble-rise {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-60vh) scale(1.08); }
+  80% { transform: translateY(-96vh) scale(0.94); }
+  100% { transform: translateY(-130vh) scale(1); }
+}
+
+.v-hero-circle {
+  position: absolute;
+  right: -160px;
+  top: -160px;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: rgba(127, 176, 220, 0.12);
+  pointer-events: none;
+}
+
+.v-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 22px 22px 20px;
+  text-align: center;
+}
+
+.v-hero-eyebrow {
   display: block;
-  width: 100%;
-  height: 16vh;
-  min-height: 120px;
-  object-fit: cover;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--v-sky);
+}
+
+.v-hero-logo {
+  display: block;
+  width: min(220px, 30vw);
+  margin: 8px auto 0;
 }
 
 .v-content {
@@ -48,21 +116,13 @@ html, body {
   padding: 28px 40px 20px;
 }
 
-.v-eyebrow {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--v-blue);
-  margin-bottom: 14px;
-}
-
 .v-photo {
   display: block;
   width: 100%;
   height: 22vh;
   min-height: 160px;
   object-fit: cover;
+  object-position: center 30%;
   border-radius: 14px;
   margin-bottom: 18px;
 }
@@ -85,25 +145,6 @@ html, body {
 
 .v-text p:last-child {
   margin-bottom: 0;
-}
-
-.v-info-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(47, 111, 237, 0.08);
-  border: 1px solid rgba(47, 111, 237, 0.25);
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin: 18px 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--v-navy);
-}
-
-.v-info-icon {
-  font-size: 20px;
-  flex-shrink: 0;
 }
 
 .v-text--closing {
@@ -210,9 +251,16 @@ html.k-portrait .v-page {
   height: 100vh;
 }
 
-html.k-portrait .v-banner {
-  height: 12vh;
-  min-height: 0;
+html.k-portrait .v-hero-inner {
+  padding: 14px 16px 12px;
+}
+
+html.k-portrait .v-hero-logo {
+  width: min(160px, 34vw);
+}
+
+html.k-portrait .v-hero-eyebrow {
+  font-size: 11px;
 }
 
 /* Content is much shorter than a TV-sized viewport, so it's sized up (not
@@ -232,6 +280,7 @@ html.k-portrait .v-content {
 html.k-portrait .v-photo {
   height: 32vh;
   min-height: 0;
+  flex-shrink: 0;
   margin-bottom: 22px;
 }
 
@@ -240,26 +289,10 @@ html.k-portrait .v-title {
   margin-bottom: 20px;
 }
 
-html.k-portrait .v-eyebrow {
-  font-size: 16px;
-  margin-bottom: 16px;
-}
-
 html.k-portrait .v-text p {
   font-size: 22px;
   line-height: 1.55;
   margin-bottom: 16px;
-}
-
-html.k-portrait .v-info-box {
-  margin: 20px 0;
-  padding: 18px 22px;
-  font-size: 21px;
-  border-radius: 14px;
-}
-
-html.k-portrait .v-info-icon {
-  font-size: 26px;
 }
 
 html.k-portrait .v-signature {
