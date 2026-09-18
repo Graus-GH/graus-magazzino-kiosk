@@ -47,18 +47,3 @@ a {
 
 @keyframes v-marquee-l { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
 @keyframes v-marquee-r { from { transform: translate3d(-50%,0,0); } to { transform: translate3d(0,0,0); } }
-
-.v-back-link {
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  z-index: 2;
-  font-size: 13px;
-  font-weight: 700;
-  color: #0e1b32;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #e3e8ef;
-  border-radius: 8px;
-  padding: 7px 12px;
-  text-decoration: none;
-}
