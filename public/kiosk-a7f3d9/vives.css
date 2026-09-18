@@ -1,310 +1,64 @@
 /*
- * VIVES! da Graus — deliberately its own light/navy look instead of the
- * kiosk's usual dark theme, to mirror graus.bz.it/vives (see the reference
- * screenshot). Landscape (office PC) is a simple centered, scrollable
- * column; verticale (TV) is sized to fit the fixed viewport with no page
- * scroll, same principle as every other TV dashboard here — a passive
- * screen has no way to scroll itself.
+ * VIVES! da Graus — Kiosk TV verticale.
+ *
+ * Fixed 1080x1920 "stage", scaled to fit the actual screen via JS (see
+ * fit() in vives.js) rather than vh-based responsive rules — this design
+ * came out of a dedicated visual pass and is meant to render pixel-for-
+ * pixel the same regardless of the real display's resolution, whether
+ * that's the portrait TV or a landscape office window (both just get
+ * letterboxed on one axis by the scale-to-fit).
  */
-
-:root {
-  /* Exact GRAUS brand palette (from the real graus.bz.it/vives design system),
-     not an approximation — dolomiti-navy / graus-blue / sky are their names. */
-  --v-navy: #0e1b32;
-  --v-navy-soft: #46505f;
-  --v-blue: #005caa;
-  --v-sky: #7fb0dc;
-  --v-paper: #f4f7fb;
-  --v-border: #e3e8ef;
-  --v-muted: #7a8696;
-}
 
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--v-paper);
-  color: var(--v-navy);
-  font-family: "Hanken Grotesk", "Segoe UI", Arial, sans-serif;
-}
-
-.v-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ---------- Hero header ----------
- * Mirrors the real site's navy hero: rising "bollicine" bubbles + a soft
- * glow circle behind a small eyebrow + the VIVES! wordmark (a white-on-
- * transparent logo, so it only reads correctly over this dark band).
- */
-
-.v-hero {
-  position: relative;
-  overflow: hidden;
-  background: var(--v-navy);
-  flex-shrink: 0;
-}
-
-.v-hero-bubbles {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.v-hero-bubbles span {
-  position: absolute;
-  bottom: -160px;
-  border-radius: 50%;
-  background: rgba(127, 176, 220, 0.14);
-  border: 1px solid rgba(127, 176, 220, 0.35);
-  animation-name: v-bubble-rise;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-@keyframes v-bubble-rise {
-  0% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-60vh) scale(1.08); }
-  80% { transform: translateY(-96vh) scale(0.94); }
-  100% { transform: translateY(-130vh) scale(1); }
-}
-
-.v-hero-circle {
-  position: absolute;
-  right: -160px;
-  top: -160px;
-  width: 480px;
-  height: 480px;
-  border-radius: 50%;
-  background: rgba(127, 176, 220, 0.12);
-  pointer-events: none;
-}
-
-.v-hero-inner {
-  position: relative;
-  z-index: 1;
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 22px 22px 20px;
-  text-align: center;
-}
-
-.v-hero-eyebrow {
-  display: block;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--v-sky);
-}
-
-.v-hero-logo {
-  display: block;
-  width: min(220px, 30vw);
-  margin: 8px auto 0;
-}
-
-.v-content {
-  flex: 1;
-  max-width: 760px;
   width: 100%;
-  margin: 0 auto;
-  padding: 28px 40px 20px;
-}
-
-.v-photo {
-  display: block;
-  width: 100%;
-  height: 22vh;
-  min-height: 160px;
-  object-fit: cover;
-  object-position: center 30%;
-  border-radius: 14px;
-  margin-bottom: 18px;
-}
-
-.v-title {
-  font-family: "Playfair Display", Georgia, serif;
-  font-style: italic;
-  font-weight: 600;
-  font-size: 42px;
-  margin: 0 0 14px;
-  color: var(--v-navy);
-}
-
-.v-text p {
-  margin: 0 0 12px;
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--v-navy-soft);
-}
-
-.v-text p:last-child {
-  margin-bottom: 0;
-}
-
-.v-text--closing {
-  margin-top: 4px;
-}
-
-.v-signature {
-  font-family: "Playfair Display", Georgia, serif;
-  font-style: italic;
-  font-size: 17px;
-  text-align: right;
-  margin-top: 16px;
-  color: var(--v-navy-soft);
-}
-
-/* ---------- Logo carousel ----------
- * A bounded-height strip that scrolls itself (CSS animation), instead of
- * making the page scroll — nobody can scroll a passive TV, so the
- * carousel has to do the moving on its own.
- */
-
-.v-carousel {
-  flex-shrink: 0;
-  background: var(--v-navy);
-  padding: 14px 0 18px;
+  height: 100%;
   overflow: hidden;
+  background: #0e1b32;
 }
 
-.v-carousel-label {
-  display: block;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 10px;
-}
-
-.v-carousel-track {
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-}
-
-.v-carousel-row {
-  display: flex;
-  align-items: center;
-  gap: 36px;
-  width: max-content;
-  animation: v-carousel-scroll 40s linear infinite;
-}
-
-.v-carousel-logo {
-  flex-shrink: 0;
-  height: 56px;
-  width: 130px;
-  background: #fff;
-  border-radius: 10px;
+body {
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  color: #0e1b32;
+  -webkit-font-smoothing: antialiased;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 14px;
 }
 
-.v-carousel-logo img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+a {
+  color: #005caa;
+  text-decoration: none;
 }
 
-@keyframes v-carousel-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+#stage {
+  transform-origin: center center;
 }
+
+@keyframes v-rise {
+  0%   { transform: translateY(0) scale(1); opacity: 0; }
+  12%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateY(-380px) scale(1.12); opacity: 0; }
+}
+
+@keyframes v-marquee-l { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
+@keyframes v-marquee-r { from { transform: translate3d(-50%,0,0); } to { transform: translate3d(0,0,0); } }
 
 .v-back-link {
-  position: fixed;
+  position: absolute;
   top: 14px;
   right: 16px;
+  z-index: 2;
   font-size: 13px;
   font-weight: 700;
-  color: var(--v-navy);
+  color: #0e1b32;
   background: rgba(255, 255, 255, 0.85);
-  border: 1px solid var(--v-border);
+  border: 1px solid #e3e8ef;
   border-radius: 8px;
   padding: 7px 12px;
   text-decoration: none;
-  z-index: 10;
-}
-
-/* ---------- Verticale (TV in portrait) ----------
- * Fit the fixed viewport height with no page scroll — bounded rows like
- * the other TV dashboards, instead of the landscape page's free-flowing
- * scrollable column.
- */
-
-html.k-portrait, html.k-portrait body {
-  height: 100vh;
-  overflow: hidden;
-}
-
-html.k-portrait .v-page {
-  height: 100vh;
-}
-
-html.k-portrait .v-hero-inner {
-  padding: 14px 16px 12px;
-}
-
-html.k-portrait .v-hero-logo {
-  width: min(160px, 34vw);
-}
-
-html.k-portrait .v-hero-eyebrow {
-  font-size: 11px;
-}
-
-/* Content is much shorter than a TV-sized viewport, so it's sized up (not
-   just fit-to-scroll) and centered — otherwise it reads as a tiny block
-   stranded at the top with a dead gap above the carousel. */
-html.k-portrait .v-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: safe center;
-  padding: 24px 40px 16px;
-  max-width: 100%;
-}
-
-html.k-portrait .v-photo {
-  height: 32vh;
-  min-height: 0;
-  flex-shrink: 0;
-  margin-bottom: 22px;
-}
-
-html.k-portrait .v-title {
-  font-size: 58px;
-  margin-bottom: 20px;
-}
-
-html.k-portrait .v-text p {
-  font-size: 22px;
-  line-height: 1.55;
-  margin-bottom: 16px;
-}
-
-html.k-portrait .v-signature {
-  margin-top: 18px;
-  font-size: 23px;
-}
-
-html.k-portrait .v-carousel {
-  padding: 10px 0 14px;
-}
-
-html.k-portrait .v-back-link {
-  padding: 6px 10px;
-  font-size: 12px;
 }
