@@ -683,54 +683,14 @@ html, body {
   white-space: nowrap;
 }
 
-/* ---------- Rotation progress bar ----------
+/* ---------- Rotation ring ----------
  * Shared by every auto-rotating view (map dashboard's vehicle spotlight,
  * Performance's Settimana/Mese/Anno, Fotovoltaico's Oggi/30gg/12mesi): a
- * thin bar that fills left-to-right over one rotation interval so a
- * passive TV viewer can see when it's about to switch. JS restarts the
- * fill animation (see startRotateProgress()/stopRotateProgress(), one copy
- * per page script) each time a new cycle begins, and stops/empties it
- * while rotation is paused for a manual interaction. */
-
-.k-rotate-progress {
-  height: 3px;
-  background: rgba(58, 160, 255, 0.15);
-  border-radius: 2px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-/* A bit thicker on TV portrait (Performance, Fotovoltaico) — same reason
-   as every other font/element bumped for that distance: 3px reads as
-   basically invisible from across a room. */
-html.k-portrait .k-rotate-progress {
-  height: 6px;
-  border-radius: 3px;
-}
-
-.k-rotate-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--graus-blue);
-  border-radius: 2px;
-}
-
-@keyframes k-rotate-fill {
-  from { width: 0%; }
-  to { width: 100%; }
-}
-
-.k-rotate-progress-fill--animating {
-  animation-name: k-rotate-fill;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-
-/* Vehicle-spotlight rotation indicator — a small ring that fills clockwise,
-   sitting right before the vehicle name instead of the plain bar used
-   elsewhere (Performance/Fotovoltaico's tabs). Same restart-the-animation
-   trick as .k-rotate-progress-fill, just driven by stroke-dashoffset
-   instead of width. */
+ * small ring that fills clockwise over one rotation interval so a passive
+ * TV viewer can see when it's about to switch. JS restarts the fill
+ * animation (see startRotateProgress()/stopRotateProgress(), one copy per
+ * page script) each time a new cycle begins, and stops/empties it while
+ * rotation is paused for a manual interaction. Driven by stroke-dashoffset. */
 .k-rotate-icon {
   position: relative;
   width: 22px;

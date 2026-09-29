@@ -66,8 +66,13 @@
 
 .sol-range-tabs {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.sol-range-tabs .k-rotate-icon {
+  margin-left: 4px;
 }
 
 .sol-range-tab {
@@ -183,6 +188,11 @@
 html.k-portrait .sol-main {
   padding: 20px 24px 24px;
   gap: 16px;
+}
+
+html.k-portrait .sol-range-tabs .k-rotate-icon {
+  width: 28px;
+  height: 28px;
 }
 
 html.k-portrait .sol-kpis {

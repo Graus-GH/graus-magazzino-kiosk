@@ -34,6 +34,12 @@ function fmtCountdown(ms) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+// Italian convention: "." for thousands, "," for decimals (e.g. 1.234,5),
+// instead of JS's default en-US-shaped stringification.
+function fmtNum(n, decimals = 0) {
+  return n.toLocaleString("it-IT", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
 function startClock() {
   const el = document.getElementById("k-clock");
   const countdownEl = document.getElementById("k-mini-countdown");
@@ -44,33 +50,35 @@ function startClock() {
   el.textContent = fmtClock(new Date());
 }
 
-// Restarts the blue countdown bar's fill animation from 0% over
-// `durationMs` — called each time a new auto-rotation cycle begins.
+// Restarts the ring's fill animation from empty over `durationMs` — called
+// each time a new auto-rotation cycle begins. Same little wheel used for
+// the vehicle spotlight on the map dashboard and Performance's tabs,
+// driving an SVG circle's stroke-dashoffset instead of a bar's width.
 function startRotateProgress(elId, durationMs) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.classList.remove("k-rotate-progress-fill--animating");
+  el.classList.remove("k-rotate-ring-fg--animating");
   el.style.animationDuration = durationMs + "ms";
-  void el.offsetWidth; // force reflow so the animation restarts from 0%
-  el.classList.add("k-rotate-progress-fill--animating");
+  void el.getBBox(); // force reflow (SVG equivalent of offsetWidth) so the animation restarts from empty
+  el.classList.add("k-rotate-ring-fg--animating");
 }
 
-// Stops the bar and empties it — used while rotation is paused (e.g. after
-// a manual click), so it doesn't keep animating a cycle that isn't
+// Stops the ring and empties it — used while rotation is paused (e.g.
+// after a manual click), so it doesn't keep animating a cycle that isn't
 // actually happening.
 function stopRotateProgress(elId) {
   const el = document.getElementById(elId);
   if (!el) return;
-  el.classList.remove("k-rotate-progress-fill--animating");
-  el.style.width = "0%";
+  el.classList.remove("k-rotate-ring-fg--animating");
+  el.style.strokeDashoffset = "94.2";
 }
 
 function renderKpis(kpis) {
-  document.getElementById("sol-produced").textContent = kpis.productionKwh + " kWh";
-  document.getElementById("sol-consumed").textContent = kpis.consumptionKwh + " kWh";
+  document.getElementById("sol-produced").textContent = fmtNum(kpis.productionKwh) + " kWh";
+  document.getElementById("sol-consumed").textContent = fmtNum(kpis.consumptionKwh) + " kWh";
   document.getElementById("sol-selfcons").textContent =
     kpis.selfConsumptionRate != null ? kpis.selfConsumptionRate + "%" : "n/d";
-  document.getElementById("sol-grid").textContent = kpis.purchasedKwh + " kWh";
+  document.getElementById("sol-grid").textContent = fmtNum(kpis.purchasedKwh) + " kWh";
 }
 
 function renderChart(chart) {
@@ -108,20 +116,20 @@ function showRange(index) {
 
 function advanceRange() {
   showRange((currentRangeIndex + 1) % RANGE_KEYS.length);
-  startRotateProgress("sol-rotate-fill", ROTATE_INTERVAL_MS);
+  startRotateProgress("sol-rotate-ring", ROTATE_INTERVAL_MS);
 }
 
 function startRotation() {
   if (rotateTimer) clearInterval(rotateTimer);
   rotateTimer = setInterval(advanceRange, ROTATE_INTERVAL_MS);
-  startRotateProgress("sol-rotate-fill", ROTATE_INTERVAL_MS);
+  startRotateProgress("sol-rotate-ring", ROTATE_INTERVAL_MS);
 }
 
 function selectRangeManually(index) {
   showRange(index);
   if (rotateTimer) clearInterval(rotateTimer);
   if (resumeTimer) clearTimeout(resumeTimer);
-  stopRotateProgress("sol-rotate-fill");
+  stopRotateProgress("sol-rotate-ring");
   resumeTimer = setTimeout(startRotation, RESUME_AFTER_MANUAL_MS);
 }
 
@@ -140,7 +148,7 @@ async function refresh() {
 
     latestData = data;
     document.getElementById("sol-power-live").textContent =
-      data.currentPowerKw != null ? data.currentPowerKw.toFixed(1) + " kW" : "n/d";
+      data.currentPowerKw != null ? fmtNum(data.currentPowerKw, 1) + " kW" : "n/d";
     showRange(currentRangeIndex);
 
     nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
