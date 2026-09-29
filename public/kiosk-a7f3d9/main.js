@@ -236,7 +236,13 @@ function fmtOdometer(km) {
 }
 
 function fmtFuelEconomy(v) {
-  return v == null ? "n/d" : v.toFixed(1);
+  return v == null ? "n/d" : fmtNum(v, 1);
+}
+
+// Italian convention: "." for thousands, "," for decimals (e.g. 1.234,5),
+// instead of JS's default en-US-shaped stringification.
+function fmtNum(n, decimals = 0) {
+  return n.toLocaleString("it-IT", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 function fmtClock(d) {
@@ -350,7 +356,7 @@ function renderKpis(vehicles, totalDrivingSeconds, totalIdlingSeconds, todaySpee
   document.getElementById("kpi-moving").textContent = moving;
   document.getElementById("kpi-stopped").textContent = stopped;
   document.getElementById("kpi-offline").textContent = offline;
-  document.getElementById("kpi-km").textContent = totalKm;
+  document.getElementById("kpi-km").textContent = fmtNum(totalKm);
 
   const withStops = vehicles.filter(v => v.todayStopSeconds > 0);
   const avgStopSeconds = withStops.length
@@ -371,7 +377,7 @@ function renderKpis(vehicles, totalDrivingSeconds, totalIdlingSeconds, todaySpee
   document.getElementById("kpiv-moving").textContent = moving;
   document.getElementById("kpiv-stopped").textContent = stopped;
   document.getElementById("kpiv-offline").textContent = offline;
-  document.getElementById("kpiv-km").textContent = totalKm;
+  document.getElementById("kpiv-km").textContent = fmtNum(totalKm);
   document.getElementById("kpiv-driving").textContent = fmtDuration(totalDrivingSeconds || 0);
   document.getElementById("kpiv-idling").textContent = fmtDuration(totalIdlingSeconds || 0);
   document.getElementById("kpiv-speeding").textContent = speedingText;
@@ -513,7 +519,7 @@ function renderSpotlight(vehicle) {
     ${locationLine}
     <div class="k-spotlight-stats">
       <div>
-        <span class="k-spotlight-stat-value">${vehicle.todayDistanceKm || 0}</span>
+        <span class="k-spotlight-stat-value">${fmtNum(vehicle.todayDistanceKm || 0, 1)}</span>
         <span class="k-spotlight-stat-label">km oggi</span>
       </div>
       <div>

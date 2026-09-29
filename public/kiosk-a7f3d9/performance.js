@@ -63,6 +63,12 @@ function fmtDuration(seconds) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+// Italian convention: "." for thousands, "," for decimals (e.g. 1.234,5),
+// instead of JS's default en-US-shaped stringification.
+function fmtNum(n, decimals = 0) {
+  return n.toLocaleString("it-IT", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
 function startClock() {
   const el = document.getElementById("k-clock");
   const countdownEl = document.getElementById("k-mini-countdown");
@@ -106,9 +112,9 @@ function stopRotateProgress(elId) {
 
 function renderKpis(totals) {
   const suffix = RANGE_KPI_SUFFIX[currentRange];
-  document.getElementById("p-total-km").textContent = totals.km;
+  document.getElementById("p-total-km").textContent = fmtNum(totals.km);
   document.getElementById("p-total-km-label").textContent = `Km totali (${suffix})`;
-  document.getElementById("p-avg-km").textContent = totals.avgKmPerDay;
+  document.getElementById("p-avg-km").textContent = fmtNum(totals.avgKmPerDay, 1);
   document.getElementById("p-avg-km-label").textContent = `Km/giorno media (${suffix})`;
   document.getElementById("p-driving-hours").textContent = fmtDuration(totals.drivingHoursSeconds);
   document.getElementById("p-driving-hours-label").textContent = `Ore di guida (${suffix})`;
@@ -127,7 +133,7 @@ function renderTrend(chart) {
     const isToday = i === todayIndex;
     return `
       <div class="p-trend-col">
-        <span class="p-trend-value">${c.km}</span>
+        <span class="p-trend-value">${fmtNum(c.km, 1)}</span>
         <div class="p-trend-bar ${isToday ? "p-trend-bar--today" : ""}" style="height:${heightPct}%"></div>
         <span class="p-trend-day">${c.label}</span>
       </div>
@@ -148,7 +154,7 @@ function renderRanking(kmPerVehicle) {
       <span class="p-ranking-name">${v.name}${v.driverName ? `<span class="s-driver-badge">${v.driverName}</span>` : ""}</span>
       <div class="p-ranking-track-row">
         <div class="p-ranking-track"><div class="p-ranking-fill" style="width:${Math.round((v.km / maxKm) * 100)}%"></div></div>
-        <span class="p-ranking-value">${v.km} km</span>
+        <span class="p-ranking-value">${fmtNum(v.km, 1)} km</span>
       </div>
     </div>
   `).join("");
