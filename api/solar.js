@@ -1,9 +1,9 @@
 /*
  * GRAUS Fleet Kiosk — /api/solar
  *
- * Impianto fotovoltaico: potenza istantanea e tre viste di dettaglio energia
- * (oggi/orario, ultimi 30 giorni/giornaliero, ultimi 12 mesi/mensile) con la
- * scomposizione produzione/autoconsumo/rete del portale SolarEdge — lette
+ * Impianto fotovoltaico: potenza istantanea e quattro viste di dettaglio
+ * energia (ieri e oggi ogni 15 minuti, ultimi 30 giorni/giornaliero, ultimi
+ * 12 mesi/mensile) con la scomposizione produzione/autoconsumo/rete del portale SolarEdge — lette
  * dalla Monitoring API V2 (monitoringapi.solaredge.com/v2), OAuth "Site
  * Access". La V1 con API key viene spenta il 1 novembre 2026.
  *
@@ -20,7 +20,8 @@
  * serve l'ultimo risultato salvato su Redis e lo aggiorna solo quando serve
  * e solo in orario di lettura (lun-ven 7:30-18:30, sab 7:30-13:00, ora di
  * Roma): "oggi" ogni 30 minuti (2 chiamate), ultimi 30 giorni / 12 mesi ogni
- * 5 ore (4 chiamate). Circa 1.300 crediti/mese, più un tetto di sicurezza.
+ * 5 ore (4 chiamate), "ieri" una volta al giorno (2 chiamate, il dato è
+ * definitivo). Circa 1.350 crediti/mese, più un tetto di sicurezza.
  *
  * Token: l'access token dura 2 ore e il refresh token ruota a ogni rinnovo
  * (il vecchio diventa invalido), quindi la coppia più recente vive su Redis.
@@ -52,9 +53,13 @@ const FAILURE_BACKOFF_SECONDS = 10 * 60;
 const MONTHLY_CREDIT_CAP = 1800; // below the 2.000 free allowance, on purpose
 
 const TODAY_COST = 2;
+const YESTERDAY_COST = 2;
 const HISTORY_COST = 4;
 
-const KEY_LENGTH = { QUARTER_HOUR: 16, DAY: 10, MONTH: 7 }; // timestamp prefix per bucket
+// Timestamp prefix per bucket. Quarter-hours keep the WHOLE timestamp (offset
+// included, 25 chars) so the repeated 02:00-03:00 hour on the 25-hour day the
+// clocks go back doesn't merge into one bucket.
+const KEY_LENGTH = { QUARTER_HOUR: 25, DAY: 10, MONTH: 7 };
 
 // Bump when the shape of the cached "today" changes, so a deploy refreshes
 // it right away instead of serving the old shape for up to 30 minutes.
@@ -271,7 +276,7 @@ function buildRange(production, purchased, feedIn, labelFn) {
 }
 
 // Only full hours get a tick label on the 15-minute chart.
-const quarterLabel = key => (key.endsWith(":00") ? key.slice(11, 13) : "");
+const quarterLabel = key => (key.slice(14, 16) === "00" ? key.slice(11, 13) : "");
 const dayLabel = key => `${key.slice(8, 10)}/${key.slice(5, 7)}`;
 function monthLabel(key) {
   const d = new Date(`${key}-15T12:00:00Z`);
@@ -289,11 +294,11 @@ function monthsAgoStartRome(now, monthsBack) {
   return startOfMonthRome(noonUtc);
 }
 
-// "Oggi": 2 calls, both at the API's finest resolution (15 minutes). Inverter
-// telemetry gives power AND energy together.
-async function fetchToday(now) {
-  const from = isoZ(startOfDayRome(now));
-  const to = isoZ(now);
+// One day at the API's finest resolution (15 minutes): 2 calls. Inverter
+// telemetry gives power AND energy together, the grid meter gives the rest.
+async function fetchQuarterHourDay(fromDate, toDate) {
+  const from = isoZ(fromDate);
+  const to = isoZ(toDate);
   const [inverters, meters] = await Promise.all([
     apiGet("inverters/telemetry", { from, to, resolution: "QUARTER_HOUR" }),
     apiGet("meters/telemetry", { from, to, resolution: "QUARTER_HOUR" })
@@ -313,11 +318,33 @@ async function fetchToday(now) {
 
   const { purchased, feedIn } = meterBuckets(meters, KEY_LENGTH.QUARTER_HOUR);
   return {
+    production, purchased, feedIn,
+    currentPowerKw: sawPower ? Math.round(currentPowerW) / 1000 : null
+  };
+}
+
+async function fetchToday(now) {
+  const day = await fetchQuarterHourDay(startOfDayRome(now), now);
+  return {
     version: TODAY_VERSION,
     updatedAt: now.getTime(),
     dateKey: dateKeyRome(now),
-    currentPowerKw: sawPower ? Math.round(currentPowerW) / 1000 : null,
-    ...buildRange(production, purchased, feedIn, quarterLabel)
+    currentPowerKw: day.currentPowerKw,
+    ...buildRange(day.production, day.purchased, day.feedIn, quarterLabel)
+  };
+}
+
+// "Ieri" is final once the day is over, so it's fetched once per day. The
+// range ends one second before midnight so today's first 15 minutes don't
+// leak in as an extra bucket.
+async function fetchYesterday(now) {
+  const dayStart = addDaysRome(now, -1);
+  const day = await fetchQuarterHourDay(dayStart, new Date(startOfDayRome(now).getTime() - 1000));
+  return {
+    version: TODAY_VERSION,
+    updatedAt: now.getTime(),
+    dateKey: dateKeyRome(dayStart),
+    ...buildRange(day.production, day.purchased, day.feedIn, quarterLabel)
   };
 }
 
@@ -369,13 +396,18 @@ function dueParts(cache, now) {
     // With no cache at all, fetch once regardless of the hour (first run).
     today: !cache || !cache.today || cache.today.version !== TODAY_VERSION ||
       (inWindow && nowMs - cache.today.updatedAt > TODAY_TTL_MS),
-    history: !cache || !cache.history || (inWindow && nowMs - cache.history.updatedAt > HISTORY_TTL_MS)
+    history: !cache || !cache.history || (inWindow && nowMs - cache.history.updatedAt > HISTORY_TTL_MS),
+    // Due when the cached day isn't the real "yesterday" any more (a new day began).
+    yesterday: !cache || !cache.yesterday || cache.yesterday.version !== TODAY_VERSION ||
+      (inWindow && cache.yesterday.dateKey !== yesterdayKey(now))
   };
 }
 
+const yesterdayKey = now => dateKeyRome(addDaysRome(now, -1));
+
 async function refreshIfDue(cache, now) {
   const due = dueParts(cache, now);
-  if (!due.today && !due.history) {
+  if (!due.today && !due.history && !due.yesterday) {
     if (!inReadingWindow(now)) await keepTokensAlive();
     return cache;
   }
@@ -395,18 +427,23 @@ async function refreshIfDue(cache, now) {
     // Re-check: someone may have refreshed while we waited for the lock.
     const latest = (await redis.getJson(KEY_CACHE)) || cache;
     const stillDue = dueParts(latest, now);
-    const cost = (stillDue.today ? TODAY_COST : 0) + (stillDue.history ? HISTORY_COST : 0);
+    const cost = (stillDue.today ? TODAY_COST : 0) + (stillDue.history ? HISTORY_COST : 0) +
+      (stillDue.yesterday ? YESTERDAY_COST : 0);
     if (!cost) return latest;
     if (!(await withinBudget(cost, now))) return latest;
 
     try {
-      const [today, history] = await Promise.all([
+      // At most 8 calls at once (the first request of a new day), under the
+      // free tier's 10 calls/minute.
+      const [today, history, yesterday] = await Promise.all([
         stillDue.today ? fetchToday(now) : null,
-        stillDue.history ? fetchHistory(now) : null
+        stillDue.history ? fetchHistory(now) : null,
+        stillDue.yesterday ? fetchYesterday(now) : null
       ]);
       const next = {
         today: today || (latest && latest.today) || null,
-        history: history || (latest && latest.history) || null
+        history: history || (latest && latest.history) || null,
+        yesterday: yesterday || (latest && latest.yesterday) || null
       };
       await redis.setJson(KEY_CACHE, next);
       return next;
@@ -425,12 +462,14 @@ function buildResponse(cache, now, stale) {
   const today = cache.today && cache.today.dateKey === dateKeyRome(now) ? cache.today : null;
   const powerFresh = today && now.getTime() - today.updatedAt < POWER_MAX_AGE_MS;
   const history = cache.history || {};
+  const yesterday = cache.yesterday && cache.yesterday.dateKey === yesterdayKey(now) ? cache.yesterday : null;
 
   return {
-    generatedAt: new Date((cache.today || cache.history).updatedAt).toISOString(),
+    generatedAt: new Date((cache.today || cache.history || cache.yesterday).updatedAt).toISOString(),
     stale, // true while the last SolarEdge refresh failed and we're serving older data
     currentPowerKw: powerFresh ? today.currentPowerKw : null,
     ranges: {
+      yesterday: yesterday ? { kpis: yesterday.kpis, chart: yesterday.chart } : EMPTY_RANGE,
       today: today ? { kpis: today.kpis, chart: today.chart } : EMPTY_RANGE,
       last30: history.last30 || EMPTY_RANGE,
       monthly: history.monthly || EMPTY_RANGE

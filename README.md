@@ -96,7 +96,7 @@ Variabili d'ambiente su Vercel (mai nel codice):
 | `SOLAREDGE_REFRESH_TOKEN` | Serve solo al primo avvio per "seminare" Redis; dopo il primo rinnovo vale quello su Redis |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Iniettate automaticamente dall'integrazione Upstash |
 
-**Crediti**: il piano gratuito dà 2.000 chiamate al mese. `/api/solar` serve l'ultimo risultato salvato e chiama SolarEdge solo in orario di lettura (lun-ven 7:30-18:30, sab 7:30-13:00, ora di Roma): "oggi" ogni 30 minuti, ultimi 30 giorni/12 mesi ogni 5 ore, circa 1.300 crediti al mese, con un tetto di sicurezza a 1.800. Fuori orario le TV mostrano l'ultimo dato salvato (la potenza istantanea diventa "n/d").
+**Crediti**: il piano gratuito dà 2.000 chiamate al mese. `/api/solar` serve l'ultimo risultato salvato e chiama SolarEdge solo in orario di lettura (lun-ven 7:30-18:30, sab 7:30-13:00, ora di Roma): "oggi" ogni 30 minuti, ultimi 30 giorni/12 mesi ogni 5 ore, "ieri" una volta al giorno (il dato è definitivo), circa 1.350 crediti al mese, con un tetto di sicurezza a 1.800. Fuori orario le TV mostrano l'ultimo dato salvato (la potenza istantanea diventa "n/d"); di domenica e prima delle 7:30 "ieri" e "oggi" risultano vuoti perché non vengono letti.
 
 **Rinnovare l'autorizzazione**: serve rifarla (link `connect.solaredge.com/authorize?...&access_duration=24`, poi scambio del `code` per i token e aggiornamento di `SOLAREDGE_REFRESH_TOKEN`) se la pagina resta spenta per più di 30 giorni, oppure alla scadenza dei 24 mesi di autorizzazione (ottobre 2028).
 

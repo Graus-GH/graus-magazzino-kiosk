@@ -7,10 +7,11 @@
 // credits — this just keeps the TV close to the server's latest data.
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ROTATE_INTERVAL_MS = 30 * 1000; // no one can click on a TV — rotate views automatically
-const RESUME_AFTER_MANUAL_MS = 90 * 1000; // roughly one full 3-view cycle
+const RESUME_AFTER_MANUAL_MS = 120 * 1000; // roughly one full 4-view cycle
 
-const RANGE_KEYS = ["today", "last30", "monthly"];
+const RANGE_KEYS = ["yesterday", "today", "last30", "monthly"];
 const RANGE_TITLES = {
+  yesterday: "Ieri — ogni 15 minuti",
   today: "Oggi — ogni 15 minuti",
   last30: "Ultimi 30 giorni",
   monthly: "Ultimi 12 mesi"
@@ -18,7 +19,7 @@ const RANGE_TITLES = {
 
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 let latestData = null;
-let currentRangeIndex = 0;
+let currentRangeIndex = RANGE_KEYS.indexOf("today"); // open on today; the rotation visits the rest
 let rotateTimer = null;
 let resumeTimer = null;
 
@@ -176,8 +177,10 @@ function showRange(index) {
   document.getElementById("sol-chart-title").textContent = RANGE_TITLES[key];
 
   if (!latestData) return;
-  renderKpis(latestData.ranges[key].kpis);
-  renderChart(latestData.ranges[key].chart);
+  // A server still on an older version may not send a range yet (e.g. "yesterday")
+  const range = latestData.ranges[key] || { kpis: { productionKwh: 0, consumptionKwh: 0, feedInKwh: 0, purchasedKwh: 0, selfConsumptionRate: null }, chart: [] };
+  renderKpis(range.kpis);
+  renderChart(range.chart);
 }
 
 function advanceRange() {
