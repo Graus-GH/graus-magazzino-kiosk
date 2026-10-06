@@ -11,7 +11,7 @@ const RESUME_AFTER_MANUAL_MS = 90 * 1000; // roughly one full 3-view cycle
 
 const RANGE_KEYS = ["today", "last30", "monthly"];
 const RANGE_TITLES = {
-  today: "Oggi — andamento orario",
+  today: "Oggi — ogni 15 minuti",
   last30: "Ultimi 30 giorni",
   monthly: "Ultimi 12 mesi"
 };
@@ -72,27 +72,75 @@ function stopRotateProgress(elId) {
   el.style.strokeDashoffset = "94.2";
 }
 
+// A thin bar split in the chart's colors: segments = [[kind, value], ...],
+// widths proportional to value; whatever is left of the bar stays as track.
+function renderKpiBar(id, segments, total) {
+  document.getElementById(id).innerHTML = total > 0
+    ? segments.map(([kind, value]) =>
+        `<i class="sol-kpi-seg sol-kpi-seg--${kind}" style="width:${Math.min(100, (value / total) * 100)}%"></i>`
+      ).join("")
+    : "";
+}
+
+function renderKpiSplit(id, parts) {
+  document.getElementById(id).innerHTML = parts.map(([kind, text]) =>
+    `<span><i class="sol-flow-dot sol-flow-dot--${kind}"></i>${text}</span>`
+  ).join("");
+}
+
 function renderKpis(kpis) {
-  document.getElementById("sol-produced").textContent = fmtNum(kpis.productionKwh) + " kWh";
-  document.getElementById("sol-consumed").textContent = fmtNum(kpis.consumptionKwh) + " kWh";
+  const produced = kpis.productionKwh;
+  const consumed = kpis.consumptionKwh;
+  const fedIn = kpis.feedInKwh;
+  const bought = kpis.purchasedKwh;
+  const self = Math.max(0, produced - fedIn);
+
+  document.getElementById("sol-produced").textContent = fmtNum(produced) + " kWh";
+  document.getElementById("sol-consumed").textContent = fmtNum(consumed) + " kWh";
   document.getElementById("sol-selfcons").textContent =
     kpis.selfConsumptionRate != null ? kpis.selfConsumptionRate + "%" : "n/d";
-  document.getElementById("sol-grid").textContent = fmtNum(kpis.purchasedKwh) + " kWh";
+  document.getElementById("sol-grid").textContent = fmtNum(bought) + " kWh";
+
+  renderKpiBar("sol-produced-bar", [["self", self], ["feedin", fedIn]], produced);
+  renderKpiSplit("sol-produced-split", [["self", fmtNum(self) + " usata"], ["feedin", fmtNum(fedIn) + " immessa"]]);
+
+  renderKpiBar("sol-consumed-bar", [["self", Math.max(0, consumed - bought)], ["purchased", bought]], consumed);
+  renderKpiSplit("sol-consumed-split", [["self", fmtNum(Math.max(0, consumed - bought)) + " dal sole"], ["purchased", fmtNum(bought) + " dalla rete"]]);
+
+  renderKpiBar("sol-selfcons-bar", [["self", kpis.selfConsumptionRate || 0]], 100);
+  renderKpiSplit("sol-selfcons-split", [["self", "dell'energia prodotta"]]);
+
+  const gridShare = consumed > 0 ? Math.round((bought / consumed) * 100) : null;
+  renderKpiBar("sol-grid-bar", [["purchased", bought]], consumed);
+  renderKpiSplit("sol-grid-split", [["purchased", gridShare != null ? gridShare + "% dei consumi" : "n/d"]]);
 }
+
+// The "Produzione / Consumo" captions are vertical text that needs ~110px per
+// half; on a very short chart they'd be cut mid-word, so hide them there
+// (visibility keeps the gutter, so the bars don't shift).
+function updateAxisVisibility() {
+  const axis = document.querySelector(".sol-flow-axis");
+  if (axis) axis.classList.toggle("sol-flow-axis--hidden", axis.clientHeight < 240);
+}
+window.addEventListener("resize", updateAxisVisibility);
 
 function renderChart(chart) {
   const maxVal = Math.max(1, ...chart.map(c => Math.max(c.production, c.consumption)));
 
-  document.getElementById("sol-chart").innerHTML = chart.map(c => `
+  const chartEl = document.getElementById("sol-chart");
+  chartEl.classList.toggle("sol-flow-chart--dense", chart.length > 40); // the 15-minute view
+  requestAnimationFrame(updateAxisVisibility);
+
+  chartEl.innerHTML = chart.map(c => `
     <div class="sol-flow-col">
       <div class="sol-flow-up">
-        <div class="sol-flow-bar sol-flow-bar--selfcons-up" style="height:${Math.round((c.selfConsumption / maxVal) * 100)}%"></div>
-        <div class="sol-flow-bar sol-flow-bar--feedin" style="height:${Math.round((c.feedIn / maxVal) * 100)}%"></div>
+        <div class="sol-flow-bar sol-flow-bar--self" style="height:${(c.selfConsumption / maxVal) * 100}%"></div>
+        <div class="sol-flow-bar sol-flow-bar--feedin" style="height:${(c.feedIn / maxVal) * 100}%"></div>
       </div>
       <div class="sol-flow-mid"></div>
       <div class="sol-flow-down">
-        <div class="sol-flow-bar sol-flow-bar--selfcons-down" style="height:${Math.round((c.selfConsumption / maxVal) * 100)}%"></div>
-        <div class="sol-flow-bar sol-flow-bar--purchased" style="height:${Math.round((c.purchased / maxVal) * 100)}%"></div>
+        <div class="sol-flow-bar sol-flow-bar--self" style="height:${(c.selfConsumption / maxVal) * 100}%"></div>
+        <div class="sol-flow-bar sol-flow-bar--purchased" style="height:${(c.purchased / maxVal) * 100}%"></div>
       </div>
       <span class="sol-flow-label">${c.label}</span>
     </div>

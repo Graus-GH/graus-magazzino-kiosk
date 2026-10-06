@@ -54,7 +54,11 @@ const MONTHLY_CREDIT_CAP = 1800; // below the 2.000 free allowance, on purpose
 const TODAY_COST = 2;
 const HISTORY_COST = 4;
 
-const KEY_LENGTH = { HOUR: 13, DAY: 10, MONTH: 7 }; // timestamp prefix per bucket
+const KEY_LENGTH = { QUARTER_HOUR: 16, DAY: 10, MONTH: 7 }; // timestamp prefix per bucket
+
+// Bump when the shape of the cached "today" changes, so a deploy refreshes
+// it right away instead of serving the old shape for up to 30 minutes.
+const TODAY_VERSION = 2;
 
 const EMPTY_RANGE = {
   kpis: { productionKwh: 0, consumptionKwh: 0, selfConsumptionRate: null, purchasedKwh: 0, feedInKwh: 0 },
@@ -266,7 +270,8 @@ function buildRange(production, purchased, feedIn, labelFn) {
   };
 }
 
-const hourLabel = key => key.slice(11, 13);
+// Only full hours get a tick label on the 15-minute chart.
+const quarterLabel = key => (key.endsWith(":00") ? key.slice(11, 13) : "");
 const dayLabel = key => `${key.slice(8, 10)}/${key.slice(5, 7)}`;
 function monthLabel(key) {
   const d = new Date(`${key}-15T12:00:00Z`);
@@ -284,21 +289,21 @@ function monthsAgoStartRome(now, monthsBack) {
   return startOfMonthRome(noonUtc);
 }
 
-// "Oggi": 2 calls. Inverter telemetry gives power AND energy together at
-// 15-minute resolution (energy is folded into hours here).
+// "Oggi": 2 calls, both at the API's finest resolution (15 minutes). Inverter
+// telemetry gives power AND energy together.
 async function fetchToday(now) {
   const from = isoZ(startOfDayRome(now));
   const to = isoZ(now);
   const [inverters, meters] = await Promise.all([
     apiGet("inverters/telemetry", { from, to, resolution: "QUARTER_HOUR" }),
-    apiGet("meters/telemetry", { from, to, resolution: "HOUR" })
+    apiGet("meters/telemetry", { from, to, resolution: "QUARTER_HOUR" })
   ]);
 
   const production = new Map();
   let currentPowerW = 0;
   let sawPower = false;
   Object.values((inverters && inverters.inverters) || {}).forEach(inv => {
-    addToBuckets(production, inv.energy && inv.energy.values, KEY_LENGTH.HOUR);
+    addToBuckets(production, inv.energy && inv.energy.values, KEY_LENGTH.QUARTER_HOUR);
     const samples = ((inv.power && inv.power.values) || []).filter(v => v.value != null);
     if (samples.length) {
       currentPowerW += samples[samples.length - 1].value;
@@ -306,12 +311,13 @@ async function fetchToday(now) {
     }
   });
 
-  const { purchased, feedIn } = meterBuckets(meters, KEY_LENGTH.HOUR);
+  const { purchased, feedIn } = meterBuckets(meters, KEY_LENGTH.QUARTER_HOUR);
   return {
+    version: TODAY_VERSION,
     updatedAt: now.getTime(),
     dateKey: dateKeyRome(now),
     currentPowerKw: sawPower ? Math.round(currentPowerW) / 1000 : null,
-    ...buildRange(production, purchased, feedIn, hourLabel)
+    ...buildRange(production, purchased, feedIn, quarterLabel)
   };
 }
 
@@ -361,7 +367,8 @@ function dueParts(cache, now) {
   const nowMs = now.getTime();
   return {
     // With no cache at all, fetch once regardless of the hour (first run).
-    today: !cache || !cache.today || (inWindow && nowMs - cache.today.updatedAt > TODAY_TTL_MS),
+    today: !cache || !cache.today || cache.today.version !== TODAY_VERSION ||
+      (inWindow && nowMs - cache.today.updatedAt > TODAY_TTL_MS),
     history: !cache || !cache.history || (inWindow && nowMs - cache.history.updatedAt > HISTORY_TTL_MS)
   };
 }

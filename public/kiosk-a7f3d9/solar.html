@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="/kiosk-a7f3d9/style.css?v=36" />
-<link rel="stylesheet" href="/kiosk-a7f3d9/solar.css?v=4" />
+<link rel="stylesheet" href="/kiosk-a7f3d9/solar.css?v=8" />
 </head>
 <body>
 
@@ -52,22 +52,33 @@
         </div>
       </div>
 
+      <!-- Each tile's thin bar and caption use the same colors as the chart
+           below: green = self-consumed, violet = fed into the grid, amber =
+           bought from the grid. Filled in by renderKpis() in solar.js. -->
       <div class="sol-kpis">
         <div class="k-panel sol-kpi-block">
           <span class="sol-big-number" id="sol-produced">–</span>
           <span class="k-kpi-label">Energia prodotta</span>
+          <div class="sol-kpi-bar" id="sol-produced-bar"></div>
+          <div class="sol-kpi-split" id="sol-produced-split"></div>
         </div>
         <div class="k-panel sol-kpi-block">
           <span class="sol-big-number" id="sol-consumed">–</span>
           <span class="k-kpi-label">Energia consumata</span>
+          <div class="sol-kpi-bar" id="sol-consumed-bar"></div>
+          <div class="sol-kpi-split" id="sol-consumed-split"></div>
         </div>
         <div class="k-panel sol-kpi-block">
-          <span class="sol-big-number" id="sol-selfcons">–</span>
+          <span class="sol-big-number sol-big-number--self" id="sol-selfcons">–</span>
           <span class="k-kpi-label">Autoconsumo</span>
+          <div class="sol-kpi-bar" id="sol-selfcons-bar"></div>
+          <div class="sol-kpi-split" id="sol-selfcons-split"></div>
         </div>
         <div class="k-panel sol-kpi-block">
-          <span class="sol-big-number" id="sol-grid">–</span>
+          <span class="sol-big-number sol-big-number--purchased" id="sol-grid">–</span>
           <span class="k-kpi-label">Prelevata dalla rete</span>
+          <div class="sol-kpi-bar" id="sol-grid-bar"></div>
+          <div class="sol-kpi-split" id="sol-grid-split"></div>
         </div>
       </div>
 
@@ -75,7 +86,7 @@
         <div class="sol-chart-head">
           <div>
             <h2 class="k-panel-title" id="sol-chart-title">Oggi — andamento orario</h2>
-            <p class="k-panel-sub">Produzione, autoconsumo e scambio con la rete</p>
+            <p class="k-panel-sub">Sopra la linea la produzione, sotto il consumo</p>
           </div>
           <div class="sol-live-power">
             <span class="sol-live-power-value" id="sol-power-live">–</span>
@@ -84,13 +95,20 @@
         </div>
 
         <div class="sol-flow-legend">
-          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--selfcons-up"></i>Verso l'edificio</span>
-          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--feedin"></i>Alla rete</span>
-          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--selfcons-down"></i>Dal sole</span>
-          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--purchased"></i>Dalla rete</span>
+          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--self"></i>Autoconsumo</span>
+          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--feedin"></i>Immessa in rete</span>
+          <span class="sol-flow-legend-item"><i class="sol-flow-dot sol-flow-dot--purchased"></i>Prelevata dalla rete</span>
         </div>
 
-        <div id="sol-chart" class="sol-flow-chart"></div>
+        <div class="sol-flow-wrap">
+          <!-- The labels are rotated 180deg to read bottom-to-top, which also
+               flips the arrow glyphs — hence ▼ here renders as ▲ and vice versa. -->
+          <div class="sol-flow-axis">
+            <span class="sol-flow-axis-label">▼ Produzione</span>
+            <span class="sol-flow-axis-label">▲ Consumo</span>
+          </div>
+          <div id="sol-chart" class="sol-flow-chart"></div>
+        </div>
       </div>
 
     </main>
@@ -98,6 +116,6 @@
   </div>
 
   <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
-  <script src="/kiosk-a7f3d9/solar.js?v=5"></script>
+  <script src="/kiosk-a7f3d9/solar.js?v=7"></script>
 </body>
 </html>

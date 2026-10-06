@@ -1,3 +1,11 @@
+/* One color per energy flow, used by the chart, its legend and the KPI tiles
+   alike. The same flow keeps the same color on both halves of the chart. */
+:root {
+  --sol-self: var(--good);      /* produced and used on site */
+  --sol-feedin: #b388ff;        /* produced, sent to the grid */
+  --sol-purchased: var(--warn); /* consumed, bought from the grid */
+}
+
 .sol-main {
   flex: 1;
   display: flex;
@@ -29,6 +37,40 @@
   font-size: 40px;
   font-weight: 700;
   color: var(--text-primary);
+}
+.sol-big-number--self { color: var(--sol-self); }
+.sol-big-number--purchased { color: var(--sol-purchased); }
+
+/* Thin composition bar + caption under each KPI, in the chart's colors */
+.sol-kpi-bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-panel-raised);
+}
+.sol-kpi-seg { height: 100%; min-width: 0; }
+.sol-kpi-seg--self { background: var(--sol-self); }
+.sol-kpi-seg--feedin { background: var(--sol-feedin); }
+.sol-kpi-seg--purchased { background: var(--sol-purchased); }
+
+.sol-kpi-split {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 14px;
+  min-height: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.sol-kpi-split span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .sol-chart-panel {
@@ -117,10 +159,9 @@
   height: 12px;
   border-radius: 3px;
 }
-.sol-flow-dot--selfcons-up { background: var(--good); }
-.sol-flow-dot--feedin { background: #2dd4c8; }
-.sol-flow-dot--selfcons-down { background: #60a5fa; }
-.sol-flow-dot--purchased { background: var(--warn); }
+.sol-flow-dot--self { background: var(--sol-self); }
+.sol-flow-dot--feedin { background: var(--sol-feedin); }
+.sol-flow-dot--purchased { background: var(--sol-purchased); }
 
 /* ---------- Bidirectional flow chart ----------
  * Each column has an upper half (production, growing UP from a zero line:
@@ -130,12 +171,57 @@
  * "Energia Impianto" chart.
  */
 
+.sol-flow-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
 .sol-flow-chart {
   flex: 1;
   display: flex;
   align-items: stretch;
   gap: 3px;
+  min-width: 0; /* lets it shrink beside the axis gutter instead of overflowing */
   min-height: 0;
+}
+
+/* The 15-minute "Oggi" chart has ~96 thin columns instead of ~12-30 */
+.sol-flow-chart--dense {
+  gap: 1px;
+}
+
+/* Say outright which half is which: a narrow gutter left of the bars, one
+   vertical caption per half (so nothing ever sits on top of a bar). The
+   bottom padding matches the label row under the columns so the halves
+   line up with the chart's. */
+.sol-flow-axis {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 20px;
+  margin-right: 8px;
+  padding-bottom: 20px;
+}
+
+.sol-flow-axis--hidden { visibility: hidden; }
+
+.sol-flow-axis-label {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .sol-flow-col {
@@ -169,19 +255,26 @@
   width: 100%;
   min-height: 0;
 }
-.sol-flow-bar--selfcons-up { background: var(--good); }
-.sol-flow-bar--feedin { background: #2dd4c8; border-radius: 3px 3px 0 0; }
-.sol-flow-bar--selfcons-down { background: #60a5fa; }
-.sol-flow-bar--purchased { background: var(--warn); border-radius: 0 0 3px 3px; }
+.sol-flow-bar--self { background: var(--sol-self); }
+.sol-flow-bar--feedin { background: var(--sol-feedin); border-radius: 3px 3px 0 0; }
+.sol-flow-bar--purchased { background: var(--sol-purchased); border-radius: 0 0 3px 3px; }
+.sol-flow-chart--dense .sol-flow-bar--feedin { border-radius: 2px 2px 0 0; }
+.sol-flow-chart--dense .sol-flow-bar--purchased { border-radius: 0 0 2px 2px; }
 
+/* Fixed height so columns with an empty label (most of the 15-minute
+   chart) keep their bars on the same baseline; the text may overflow a
+   narrow column on both sides without widening it. */
 .sol-flow-label {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  height: 14px;
   font-size: 10px;
   color: var(--text-muted);
   margin-top: 6px;
   flex-shrink: 0;
   white-space: nowrap;
 }
+.sol-flow-chart--dense .sol-flow-label { font-size: 11px; }
 
 /* ---------- Verticale (TV in portrait) ---------- */
 
@@ -222,4 +315,23 @@ html.k-portrait .sol-flow-legend {
 
 html.k-portrait .sol-flow-label {
   font-size: 8px;
+}
+html.k-portrait .sol-flow-chart--dense .sol-flow-label {
+  font-size: 11px;
+}
+
+html.k-portrait .sol-kpi-split {
+  font-size: 14px;
+}
+
+html.k-portrait .sol-flow-axis {
+  width: 24px;
+}
+
+html.k-portrait .sol-flow-axis-label {
+  font-size: 14px;
+}
+
+html.k-portrait .sol-flow-legend-item {
+  font-size: 15px;
 }
