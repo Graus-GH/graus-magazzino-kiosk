@@ -1,142 +1,434 @@
 /*
  * GRAUS Fleet Kiosk — /api/solar
  *
- * Impianto fotovoltaico: potenza istantanea, e tre viste di dettaglio
- * energia (oggi/orario, ultimi 30 giorni/giornaliero, ultimi 12 mesi) con
- * la stessa scomposizione produzione/autoconsumo/rete mostrata dal
- * pannello "Energia Impianto" del portale SolarEdge — lette dalla
- * Monitoring API (monitoringapi.solaredge.com).
+ * Impianto fotovoltaico: potenza istantanea e tre viste di dettaglio energia
+ * (oggi/orario, ultimi 30 giorni/giornaliero, ultimi 12 mesi/mensile) con la
+ * scomposizione produzione/autoconsumo/rete del portale SolarEdge — lette
+ * dalla Monitoring API V2 (monitoringapi.solaredge.com/v2), OAuth "Site
+ * Access". La V1 con API key viene spenta il 1 novembre 2026.
  *
- * Credenziali (SOLAREDGE_API_KEY, SOLAREDGE_SITE_ID) vivono SOLO nelle
- * variabili d'ambiente di Vercel, mai nel codice — stesso principio delle
- * credenziali Geotab. Recuperabili dal portale SolarEdge: Admin → Site
- * Access → API Access.
+ * Come ricostruiamo la scomposizione (verificato sui dati reali: i totali
+ * coincidono con l'overview del sito):
+ *   produzione   = energia inverter
+ *   immessa      = contatore, exportEnergy
+ *   prelevata    = contatore, importEnergy
+ *   autoconsumo  = produzione - immessa
+ *   consumo      = autoconsumo + prelevata
  *
- * La scomposizione richiede che il vostro impianto abbia anche un
- * contatore di consumo configurato in SolarEdge (non solo produzione) —
- * se non c'è, i meter Consumption/SelfConsumption/FeedIn/Purchased
- * torneranno vuoti e i relativi KPI/barre resteranno a 0.
+ * Crediti: il piano gratuito dà 2.000 chiamate/mese (1 credito a chiamata).
+ * Per questo le TV NON chiamano mai SolarEdge direttamente: questa funzione
+ * serve l'ultimo risultato salvato su Redis e lo aggiorna solo quando serve
+ * e solo in orario di lettura (lun-ven 7:30-18:30, sab 7:30-13:00, ora di
+ * Roma): "oggi" ogni 30 minuti (2 chiamate), ultimi 30 giorni / 12 mesi ogni
+ * 5 ore (4 chiamate). Circa 1.300 crediti/mese, più un tetto di sicurezza.
  *
- * 4 chiamate per refresh (overview + 3 energyDetails) — l'API gratuita di
- * SolarEdge ha un budget limitato al giorno per sito, per questo il
- * refresh lato client è ogni ~20 minuti (vedi solar.js), non ogni 60
- * secondi come la flotta.
+ * Token: l'access token dura 2 ore e il refresh token ruota a ogni rinnovo
+ * (il vecchio diventa invalido), quindi la coppia più recente vive su Redis.
+ *
+ * Variabili d'ambiente (SOLO su Vercel, mai nel codice):
+ *   SOLAREDGE_CLIENT_ID, SOLAREDGE_CLIENT_SECRET, SOLAREDGE_SITE_ID
+ *   SOLAREDGE_REFRESH_TOKEN  (solo per il primo avvio, poi basta Redis)
+ *   KV_REST_API_URL, KV_REST_API_TOKEN  (iniettate dall'integrazione Upstash)
  */
 
-const { startOfDayRome, startOfMonthRome } = require("../lib/timezone");
+const {
+  startOfDayRome, startOfMonthRome, isoWeekdayRome, dateKeyRome, addDaysRome
+} = require("../lib/timezone");
+const redis = require("../lib/upstash");
 
-const SOLAREDGE_API_BASE = "https://monitoringapi.solaredge.com";
-const METERS = "Production,Consumption,SelfConsumption,FeedIn,Purchased";
+const API_BASE = "https://monitoringapi.solaredge.com/v2";
 
-function romeDateTimeString(date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Rome",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-    hour12: false
+const KEY_TOKENS = "solaredge:tokens";
+const KEY_TOKEN_LOCK = "solaredge:token-lock";
+const KEY_CACHE = "solaredge:cache";
+const KEY_REFRESH_LOCK = "solaredge:refresh-lock";
+const KEY_FAILURE = "solaredge:failure";
+
+const TODAY_TTL_MS = 30 * 60 * 1000;
+const HISTORY_TTL_MS = 5 * 60 * 60 * 1000;
+const POWER_MAX_AGE_MS = 60 * 60 * 1000;
+const TOKEN_KEEPALIVE_MS = 7 * 24 * 60 * 60 * 1000; // refresh token lives 30 days
+const FAILURE_BACKOFF_SECONDS = 10 * 60;
+const MONTHLY_CREDIT_CAP = 1800; // below the 2.000 free allowance, on purpose
+
+const TODAY_COST = 2;
+const HISTORY_COST = 4;
+
+const KEY_LENGTH = { HOUR: 13, DAY: 10, MONTH: 7 }; // timestamp prefix per bucket
+
+const EMPTY_RANGE = {
+  kpis: { productionKwh: 0, consumptionKwh: 0, selfConsumptionRate: null, purchasedKwh: 0, feedInKwh: 0 },
+  chart: []
+};
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// ---------- Orari di lettura (ora di Roma) ----------
+
+function romeMinutesOfDay(date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false
   }).formatToParts(date);
-  const get = t => parts.find(p => p.type === t).value;
-  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+  const hour = parseInt(parts.find(p => p.type === "hour").value, 10) % 24;
+  const minute = parseInt(parts.find(p => p.type === "minute").value, 10);
+  return hour * 60 + minute;
 }
 
-// Midnight on the 1st of the Rome-local month that's `monthsBack` months
-// before `now` — same "noon UTC is safely inside the target day" trick
-// timezone.js already uses, just walked back a further N months first.
-function monthsAgoStartRome(now, monthsBack) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit" }).formatToParts(now);
-  const year = parseInt(parts.find(p => p.type === "year").value, 10);
-  const month = parseInt(parts.find(p => p.type === "month").value, 10);
-
-  let targetMonth = month - monthsBack;
-  let targetYear = year;
-  while (targetMonth <= 0) { targetMonth += 12; targetYear -= 1; }
-
-  const noonUtc = new Date(`${targetYear}-${String(targetMonth).padStart(2, "0")}-15T12:00:00Z`);
-  return startOfMonthRome(noonUtc);
+function inReadingWindow(date) {
+  const weekday = isoWeekdayRome(date);
+  const minutes = romeMinutesOfDay(date);
+  const open = 7 * 60 + 30;
+  if (weekday >= 1 && weekday <= 5) return minutes >= open && minutes <= 18 * 60 + 30;
+  if (weekday === 6) return minutes >= open && minutes <= 13 * 60;
+  return false;
 }
 
-async function solarEdgeCall(path, params) {
-  const { SOLAREDGE_API_KEY, SOLAREDGE_SITE_ID } = process.env;
-  if (!SOLAREDGE_API_KEY || !SOLAREDGE_SITE_ID) {
-    throw new Error("Missing SOLAREDGE_API_KEY / SOLAREDGE_SITE_ID env vars");
+// ---------- OAuth ----------
+
+async function requestToken(body) {
+  const { SOLAREDGE_CLIENT_ID, SOLAREDGE_CLIENT_SECRET } = process.env;
+  if (!SOLAREDGE_CLIENT_ID || !SOLAREDGE_CLIENT_SECRET) {
+    throw new Error("Missing SOLAREDGE_CLIENT_ID / SOLAREDGE_CLIENT_SECRET env vars");
   }
-
-  const url = new URL(`${SOLAREDGE_API_BASE}/site/${SOLAREDGE_SITE_ID}${path}`);
-  url.searchParams.set("api_key", SOLAREDGE_API_KEY);
-  Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
-
-  const resp = await fetch(url.toString());
-  const data = await resp.json();
+  const resp = await fetch(`${API_BASE}/oauth2/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, client_id: SOLAREDGE_CLIENT_ID, client_secret: SOLAREDGE_CLIENT_SECRET })
+  });
+  const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    throw new Error(`SolarEdge API error (${resp.status}): ${JSON.stringify(data)}`);
+    throw new Error(`SolarEdge OAuth error (${resp.status}): ${data.error || ""} ${data.error_description || ""}`.trim());
   }
   return data;
 }
 
-function meterSeriesByType(energyDetails) {
-  const map = {};
-  ((energyDetails && energyDetails.meters) || []).forEach(m => { map[m.type] = m.values || []; });
-  return map;
+async function saveTokens(tokens) {
+  // The old refresh token is already dead at this point, so losing the new
+  // one would force a manual re-authorization — worth a few retries.
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await redis.setJson(KEY_TOKENS, tokens);
+      return;
+    } catch (err) {
+      lastError = err;
+      await sleep(300);
+    }
+  }
+  throw lastError;
 }
 
-function sumSeries(series, type) {
-  return (series[type] || []).reduce((sum, v) => sum + (v.value || 0), 0);
+async function refreshTokens(current) {
+  const refreshToken = (current && current.refreshToken) || process.env.SOLAREDGE_REFRESH_TOKEN;
+  if (!refreshToken) {
+    throw new Error("No SolarEdge refresh token: set SOLAREDGE_REFRESH_TOKEN to seed the first run");
+  }
+  const data = await requestToken({ grant_type: "refresh_token", refresh_token: refreshToken });
+  const now = Date.now();
+  const tokens = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: now + data.expires_in * 1000,
+    refreshedAt: now
+  };
+  await saveTokens(tokens);
+  return tokens;
 }
 
-function buildKpis(energyDetails) {
-  const series = meterSeriesByType(energyDetails);
-  const production = sumSeries(series, "Production");
-  const consumption = sumSeries(series, "Consumption");
-  const selfConsumption = sumSeries(series, "SelfConsumption");
-  const purchased = sumSeries(series, "Purchased");
-  const feedIn = sumSeries(series, "FeedIn");
+function accessTokenUsable(tokens) {
+  return tokens && tokens.expiresAt - Date.now() > 2 * 60 * 1000;
+}
+
+async function getAccessToken(forceRefresh) {
+  const startedAt = Date.now();
+  const stored = await redis.getJson(KEY_TOKENS);
+  if (!forceRefresh && accessTokenUsable(stored)) return stored.accessToken;
+
+  if (await redis.acquireLock(KEY_TOKEN_LOCK, 30)) {
+    try {
+      // Another invocation may have refreshed just before we got the lock.
+      const latest = await redis.getJson(KEY_TOKENS);
+      if (!forceRefresh && accessTokenUsable(latest)) return latest.accessToken;
+      if (forceRefresh && latest && latest.refreshedAt > startedAt) return latest.accessToken;
+      return (await refreshTokens(latest)).accessToken;
+    } finally {
+      await redis.del(KEY_TOKEN_LOCK);
+    }
+  }
+
+  // A concurrent invocation is refreshing — the refresh token is single-use,
+  // so wait for its result instead of racing it.
+  for (let i = 0; i < 5; i++) {
+    await sleep(1500);
+    const latest = await redis.getJson(KEY_TOKENS);
+    if (accessTokenUsable(latest) && (!forceRefresh || latest.refreshedAt > startedAt)) {
+      return latest.accessToken;
+    }
+  }
+  throw new Error("Timed out waiting for a concurrent SolarEdge token refresh");
+}
+
+// Refresh tokens expire after 30 days unused; outside reading hours nothing
+// would otherwise touch them, so renew once a week while a TV is polling.
+async function keepTokensAlive() {
+  const stored = await redis.getJson(KEY_TOKENS);
+  if (stored && Date.now() - stored.refreshedAt > TOKEN_KEEPALIVE_MS) {
+    await getAccessToken(true);
+  }
+}
+
+// ---------- Chiamate API ----------
+
+async function apiGet(path, params) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await getAccessToken(attempt > 0);
+    const url = new URL(`${API_BASE}/sites/${process.env.SOLAREDGE_SITE_ID}/${path}`);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+    const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+    if (resp.status === 401 && attempt === 0) continue; // token revoked/expired early: refresh once and retry
+
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok) {
+      throw new Error(`SolarEdge API error (${resp.status}) on ${path}: ${JSON.stringify(data)}`);
+    }
+    return data;
+  }
+}
+
+// The V2 API wants UTC instants ("...Z", no milliseconds); answers come back
+// in Rome local time with an offset, which is what the bucket keys use.
+function isoZ(date) {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+// ---------- Costruzione dei dati ----------
+
+function addToBuckets(map, values, keyLength) {
+  (values || []).forEach(v => {
+    const key = v.timestamp.slice(0, keyLength);
+    map.set(key, (map.get(key) || 0) + (v.value || 0));
+  });
+}
+
+// Grid meter(s): importEnergy = purchased, exportEnergy = fed into the grid.
+function meterBuckets(meterTelemetry, keyLength) {
+  const purchased = new Map();
+  const feedIn = new Map();
+  Object.values((meterTelemetry && meterTelemetry.meters) || {}).forEach(meter => {
+    addToBuckets(purchased, meter.importEnergy && meter.importEnergy.values, keyLength);
+    addToBuckets(feedIn, meter.exportEnergy && meter.exportEnergy.values, keyLength);
+  });
+  return { purchased, feedIn };
+}
+
+function kwh(wh) {
+  return Math.round(wh / 100) / 10; // Wh -> kWh, 1 decimal
+}
+
+function buildRange(production, purchased, feedIn, labelFn) {
+  const totals = { production: 0, selfConsumption: 0, consumption: 0, purchased: 0, feedIn: 0 };
+
+  const chart = [...production.keys()].map(key => {
+    const prod = production.get(key) || 0;
+    const fed = feedIn.get(key) || 0;
+    const bought = purchased.get(key) || 0;
+    const self = Math.max(0, prod - fed);
+    const consumption = self + bought;
+
+    totals.production += prod;
+    totals.selfConsumption += self;
+    totals.consumption += consumption;
+    totals.purchased += bought;
+    totals.feedIn += fed;
+
+    return {
+      label: labelFn(key),
+      production: kwh(prod),
+      consumption: kwh(consumption),
+      selfConsumption: kwh(self),
+      feedIn: kwh(fed),
+      purchased: kwh(bought)
+    };
+  });
 
   return {
-    productionKwh: Math.round(production / 1000),
-    consumptionKwh: Math.round(consumption / 1000),
-    selfConsumptionRate: production > 0 ? Math.round((selfConsumption / production) * 100) : null,
-    purchasedKwh: Math.round(purchased / 1000),
-    feedInKwh: Math.round(feedIn / 1000)
+    kpis: {
+      productionKwh: Math.round(totals.production / 1000),
+      consumptionKwh: Math.round(totals.consumption / 1000),
+      selfConsumptionRate: totals.production > 0
+        ? Math.round((totals.selfConsumption / totals.production) * 100)
+        : null,
+      purchasedKwh: Math.round(totals.purchased / 1000),
+      feedInKwh: Math.round(totals.feedIn / 1000)
+    },
+    chart
   };
 }
 
-function buildFlowChart(energyDetails, labelFn) {
-  const series = meterSeriesByType(energyDetails);
-  const dates = (series.Production || []).map(v => v.date);
-
-  const lookup = type => {
-    const m = new Map((series[type] || []).map(v => [v.date, v.value]));
-    return date => {
-      const v = m.get(date);
-      return v == null ? 0 : Math.round(v / 100) / 10; // Wh -> kWh, 1 decimal
-    };
-  };
-  const getProduction = lookup("Production");
-  const getConsumption = lookup("Consumption");
-  const getSelfConsumption = lookup("SelfConsumption");
-  const getFeedIn = lookup("FeedIn");
-  const getPurchased = lookup("Purchased");
-
-  return dates.map(date => ({
-    label: labelFn(date),
-    production: getProduction(date),
-    consumption: getConsumption(date),
-    selfConsumption: getSelfConsumption(date),
-    feedIn: getFeedIn(date),
-    purchased: getPurchased(date)
-  }));
-}
-
-function hourLabel(dateStr) {
-  return dateStr.slice(11, 13);
-}
-function dayLabel(dateStr) {
-  const [, m, d] = dateStr.slice(0, 10).split("-");
-  return `${d}/${m}`;
-}
-function monthLabel(dateStr) {
-  const d = new Date(dateStr.slice(0, 10) + "T12:00:00Z");
+const hourLabel = key => key.slice(11, 13);
+const dayLabel = key => `${key.slice(8, 10)}/${key.slice(5, 7)}`;
+function monthLabel(key) {
+  const d = new Date(`${key}-15T12:00:00Z`);
   return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", month: "short" }).format(d);
+}
+
+// Midnight on the 1st of the Rome month that's `monthsBack` months before
+// `now` (same noon-UTC trick timezone.js uses).
+function monthsAgoStartRome(now, monthsBack) {
+  const [year, month] = dateKeyRome(now).split("-").map(Number);
+  let targetMonth = month - monthsBack;
+  let targetYear = year;
+  while (targetMonth <= 0) { targetMonth += 12; targetYear -= 1; }
+  const noonUtc = new Date(`${targetYear}-${String(targetMonth).padStart(2, "0")}-15T12:00:00Z`);
+  return startOfMonthRome(noonUtc);
+}
+
+// "Oggi": 2 calls. Inverter telemetry gives power AND energy together at
+// 15-minute resolution (energy is folded into hours here).
+async function fetchToday(now) {
+  const from = isoZ(startOfDayRome(now));
+  const to = isoZ(now);
+  const [inverters, meters] = await Promise.all([
+    apiGet("inverters/telemetry", { from, to, resolution: "QUARTER_HOUR" }),
+    apiGet("meters/telemetry", { from, to, resolution: "HOUR" })
+  ]);
+
+  const production = new Map();
+  let currentPowerW = 0;
+  let sawPower = false;
+  Object.values((inverters && inverters.inverters) || {}).forEach(inv => {
+    addToBuckets(production, inv.energy && inv.energy.values, KEY_LENGTH.HOUR);
+    const samples = ((inv.power && inv.power.values) || []).filter(v => v.value != null);
+    if (samples.length) {
+      currentPowerW += samples[samples.length - 1].value;
+      sawPower = true;
+    }
+  });
+
+  const { purchased, feedIn } = meterBuckets(meters, KEY_LENGTH.HOUR);
+  return {
+    updatedAt: now.getTime(),
+    dateKey: dateKeyRome(now),
+    currentPowerKw: sawPower ? Math.round(currentPowerW) / 1000 : null,
+    ...buildRange(production, purchased, feedIn, hourLabel)
+  };
+}
+
+// Ultimi 30 giorni + ultimi 12 mesi: 4 calls (site energy + grid meter each).
+async function fetchHistory(now) {
+  const to = isoZ(now);
+  const last30From = isoZ(addDaysRome(now, -29));
+  const monthlyFrom = isoZ(monthsAgoStartRome(now, 11));
+
+  const [energyDay, metersDay, energyMonth, metersMonth] = await Promise.all([
+    apiGet("energy", { from: last30From, to, resolution: "DAY" }),
+    apiGet("meters/telemetry", { from: last30From, to, resolution: "DAY" }),
+    apiGet("energy", { from: monthlyFrom, to, resolution: "MONTH" }),
+    apiGet("meters/telemetry", { from: monthlyFrom, to, resolution: "MONTH" })
+  ]);
+
+  const range = (energy, meters, keyLength, labelFn) => {
+    const production = new Map();
+    addToBuckets(production, energy && energy.values, keyLength);
+    const { purchased, feedIn } = meterBuckets(meters, keyLength);
+    return buildRange(production, purchased, feedIn, labelFn);
+  };
+
+  return {
+    updatedAt: now.getTime(),
+    last30: range(energyDay, metersDay, KEY_LENGTH.DAY, dayLabel),
+    monthly: range(energyMonth, metersMonth, KEY_LENGTH.MONTH, monthLabel)
+  };
+}
+
+// ---------- Cache, budget, refresh ----------
+
+async function withinBudget(cost, now) {
+  const key = `solaredge:credits:${dateKeyRome(now).slice(0, 7)}`;
+  const used = await redis.incrBy(key, cost);
+  await redis.expire(key, 40 * 24 * 60 * 60);
+  if (used > MONTHLY_CREDIT_CAP) {
+    await redis.incrBy(key, -cost);
+    console.warn(`SolarEdge credit cap (${MONTHLY_CREDIT_CAP}/month) reached — serving cached data only`);
+    return false;
+  }
+  return true;
+}
+
+function dueParts(cache, now) {
+  const inWindow = inReadingWindow(now);
+  const nowMs = now.getTime();
+  return {
+    // With no cache at all, fetch once regardless of the hour (first run).
+    today: !cache || !cache.today || (inWindow && nowMs - cache.today.updatedAt > TODAY_TTL_MS),
+    history: !cache || !cache.history || (inWindow && nowMs - cache.history.updatedAt > HISTORY_TTL_MS)
+  };
+}
+
+async function refreshIfDue(cache, now) {
+  const due = dueParts(cache, now);
+  if (!due.today && !due.history) {
+    if (!inReadingWindow(now)) await keepTokensAlive();
+    return cache;
+  }
+  if (await redis.exists(KEY_FAILURE)) return cache; // backing off after an error
+  if (!(await redis.acquireLock(KEY_REFRESH_LOCK, 45))) {
+    // Another invocation is already fetching. If we have nothing to show yet
+    // (first load after a deploy, several TVs polling at once) wait for its
+    // result instead of failing.
+    for (let i = 0; !cache && i < 15; i++) {
+      await sleep(1000);
+      cache = await redis.getJson(KEY_CACHE);
+    }
+    return cache;
+  }
+
+  try {
+    // Re-check: someone may have refreshed while we waited for the lock.
+    const latest = (await redis.getJson(KEY_CACHE)) || cache;
+    const stillDue = dueParts(latest, now);
+    const cost = (stillDue.today ? TODAY_COST : 0) + (stillDue.history ? HISTORY_COST : 0);
+    if (!cost) return latest;
+    if (!(await withinBudget(cost, now))) return latest;
+
+    try {
+      const [today, history] = await Promise.all([
+        stillDue.today ? fetchToday(now) : null,
+        stillDue.history ? fetchHistory(now) : null
+      ]);
+      const next = {
+        today: today || (latest && latest.today) || null,
+        history: history || (latest && latest.history) || null
+      };
+      await redis.setJson(KEY_CACHE, next);
+      return next;
+    } catch (err) {
+      console.error("GRAUS Fleet Kiosk solar refresh failed:", err);
+      await redis.setJson(KEY_FAILURE, { at: now.toISOString(), message: err.message }, FAILURE_BACKOFF_SECONDS);
+      if (!latest) throw err;
+      return latest;
+    }
+  } finally {
+    await redis.del(KEY_REFRESH_LOCK);
+  }
+}
+
+function buildResponse(cache, now, stale) {
+  const today = cache.today && cache.today.dateKey === dateKeyRome(now) ? cache.today : null;
+  const powerFresh = today && now.getTime() - today.updatedAt < POWER_MAX_AGE_MS;
+  const history = cache.history || {};
+
+  return {
+    generatedAt: new Date((cache.today || cache.history).updatedAt).toISOString(),
+    stale, // true while the last SolarEdge refresh failed and we're serving older data
+    currentPowerKw: powerFresh ? today.currentPowerKw : null,
+    ranges: {
+      today: today ? { kpis: today.kpis, chart: today.chart } : EMPTY_RANGE,
+      last30: history.last30 || EMPTY_RANGE,
+      monthly: history.monthly || EMPTY_RANGE
+    }
+  };
 }
 
 module.exports = async (req, res) => {
@@ -144,39 +436,12 @@ module.exports = async (req, res) => {
 
   try {
     const now = new Date();
-    const todayStart = startOfDayRome(now);
-    const last30Start = new Date(startOfDayRome(now).getTime() - 29 * 24 * 60 * 60 * 1000);
-    const monthlyStart = monthsAgoStartRome(now, 11);
-
-    const [overview, todayDetails, last30Details, monthlyDetails] = await Promise.all([
-      solarEdgeCall("/overview"),
-      solarEdgeCall("/energyDetails", { meters: METERS, timeUnit: "HOUR", startTime: romeDateTimeString(todayStart), endTime: romeDateTimeString(now) }),
-      solarEdgeCall("/energyDetails", { meters: METERS, timeUnit: "DAY", startTime: romeDateTimeString(last30Start), endTime: romeDateTimeString(now) }),
-      solarEdgeCall("/energyDetails", { meters: METERS, timeUnit: "MONTH", startTime: romeDateTimeString(monthlyStart), endTime: romeDateTimeString(now) })
-    ]);
-
-    const currentPowerKw = (overview.overview && overview.overview.currentPower)
-      ? Math.round(overview.overview.currentPower.power) / 1000
-      : null;
-
-    res.status(200).json({
-      generatedAt: now.toISOString(),
-      currentPowerKw,
-      ranges: {
-        today: {
-          kpis: buildKpis(todayDetails.energyDetails),
-          chart: buildFlowChart(todayDetails.energyDetails, hourLabel)
-        },
-        last30: {
-          kpis: buildKpis(last30Details.energyDetails),
-          chart: buildFlowChart(last30Details.energyDetails, dayLabel)
-        },
-        monthly: {
-          kpis: buildKpis(monthlyDetails.energyDetails),
-          chart: buildFlowChart(monthlyDetails.energyDetails, monthLabel)
-        }
-      }
-    });
+    const cache = await refreshIfDue(await redis.getJson(KEY_CACHE), now);
+    if (!cache) {
+      res.status(503).json({ error: "Dati fotovoltaico non ancora disponibili, riprovare tra poco" });
+      return;
+    }
+    res.status(200).json(buildResponse(cache, now, await redis.exists(KEY_FAILURE)));
   } catch (err) {
     console.error("GRAUS Fleet Kiosk solar API error:", err);
     res.status(500).json({ error: err.message || "Unknown error" });

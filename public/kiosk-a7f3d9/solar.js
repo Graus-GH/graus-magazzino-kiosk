@@ -2,11 +2,10 @@
  * GRAUS Fleet Kiosk — Impianto Fotovoltaico (SolarEdge)
  */
 
-// SolarEdge's free API has a limited daily call budget per site — this
-// page makes 4 calls per refresh (overview + 3 energyDetails ranges), so
-// the interval is longer than the fleet dashboard's 60s: ~20 min = ~288
-// calls/day, comfortably under a typical ~300/day cap.
-const REFRESH_INTERVAL_MS = 20 * 60 * 1000;
+// /api/solar serves a cached copy and only talks to SolarEdge itself on its
+// own schedule (see api/solar.js), so polling it often costs no SolarEdge
+// credits — this just keeps the TV close to the server's latest data.
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ROTATE_INTERVAL_MS = 30 * 1000; // no one can click on a TV — rotate views automatically
 const RESUME_AFTER_MANUAL_MS = 90 * 1000; // roughly one full 3-view cycle
 

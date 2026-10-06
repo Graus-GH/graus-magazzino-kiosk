@@ -3,7 +3,7 @@
     "api/fleet.js": { "maxDuration": 30 },
     "api/stops.js": { "maxDuration": 45 },
     "api/performance.js": { "maxDuration": 60 },
-    "api/solar.js": { "maxDuration": 15 }
+    "api/solar.js": { "maxDuration": 30 }
   },
   "redirects": [
     { "source": "/tv", "destination": "/kiosk-a7f3d9/?layout=verticale", "permanent": false },

@@ -82,6 +82,24 @@ Per ora, in fase di test, va bene così.
 |---|---|---|
 | `DRIVER_REVEAL_KEY` | Chiave segreta per vedere i nomi conducente in tutte e tre le dashboard. Impostane una a piacere (es. una stringa casuale), poi apri una pagina aggiungendo `?key=quella-stringa` in fondo all'URL — solo così i nomi compaiono, sulla TV pubblica restano sempre nascosti | (nessuno — funzione disattivata finché non la imposti) |
 
+## Fotovoltaico (SolarEdge, API V2 con OAuth)
+
+La pagina Energia legge la Monitoring API V2 di SolarEdge (la V1 con API key viene spenta il 1 novembre 2026). Il token OAuth dura 2 ore e il refresh token **ruota a ogni rinnovo**, quindi la coppia più recente viene salvata su **Upstash Redis** (integrazione dal Marketplace di Vercel, piano gratuito).
+
+Variabili d'ambiente su Vercel (mai nel codice):
+
+| Nome | Descrizione |
+|---|---|
+| `SOLAREDGE_CLIENT_ID` | Client ID dell'app "Site Access" creata su developer.solaredge.com |
+| `SOLAREDGE_CLIENT_SECRET` | Client Secret della stessa app (mostrato una volta sola alla creazione) |
+| `SOLAREDGE_SITE_ID` | ID impianto (`4778789`) |
+| `SOLAREDGE_REFRESH_TOKEN` | Serve solo al primo avvio per "seminare" Redis; dopo il primo rinnovo vale quello su Redis |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Iniettate automaticamente dall'integrazione Upstash |
+
+**Crediti**: il piano gratuito dà 2.000 chiamate al mese. `/api/solar` serve l'ultimo risultato salvato e chiama SolarEdge solo in orario di lettura (lun-ven 7:30-18:30, sab 7:30-13:00, ora di Roma): "oggi" ogni 30 minuti, ultimi 30 giorni/12 mesi ogni 5 ore, circa 1.300 crediti al mese, con un tetto di sicurezza a 1.800. Fuori orario le TV mostrano l'ultimo dato salvato (la potenza istantanea diventa "n/d").
+
+**Rinnovare l'autorizzazione**: serve rifarla (link `connect.solaredge.com/authorize?...&access_duration=24`, poi scambio del `code` per i token e aggiornamento di `SOLAREDGE_REFRESH_TOKEN`) se la pagina resta spenta per più di 30 giorni, oppure alla scadenza dei 24 mesi di autorizzazione (ottobre 2028).
+
 ## Eccessi di velocità
 
 Legge la regola Geotab predefinita **"Eccesso di velocità (nuova versione)"** (attiva a partire da +20% sul limite stradale per 5+ secondi) invece di ricalcolare da soli i dati GPS grezzi — più preciso perché tiene conto del limite reale di ogni strada, e permette di vedere gli eccessi anche su settimana/mese/anno, non solo oggi. Se nella dashboard Performance il pannello mostra "Regola non trovata", verifica in MyGeotab che quella regola esista con lo stesso nome esatto e sia attiva.
