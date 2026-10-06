@@ -88,6 +88,16 @@ function renderKpiSplit(id, parts) {
   ).join("");
 }
 
+// A part and its remainder as percentages of `total` that always add up to
+// exactly 100 (never "72% + 27%"); [null, null] when there's no total.
+function shares(part, total) {
+  if (!(total > 0)) return [null, null];
+  const first = Math.round((part / total) * 100);
+  return [first, 100 - first];
+}
+
+const pct = p => (p == null ? "" : ` (${p}%)`);
+
 function renderKpis(kpis) {
   const produced = kpis.productionKwh;
   const consumed = kpis.consumptionKwh;
@@ -101,11 +111,20 @@ function renderKpis(kpis) {
     kpis.selfConsumptionRate != null ? kpis.selfConsumptionRate + "%" : "n/d";
   document.getElementById("sol-grid").textContent = fmtNum(bought) + " kWh";
 
+  const [selfShareOfProduced, fedInShare] = shares(self, produced);
   renderKpiBar("sol-produced-bar", [["self", self], ["feedin", fedIn]], produced);
-  renderKpiSplit("sol-produced-split", [["self", fmtNum(self) + " usata"], ["feedin", fmtNum(fedIn) + " immessa"]]);
+  renderKpiSplit("sol-produced-split", [
+    ["self", `${fmtNum(self)} usata${pct(selfShareOfProduced)}`],
+    ["feedin", `${fmtNum(fedIn)} immessa${pct(fedInShare)}`]
+  ]);
 
-  renderKpiBar("sol-consumed-bar", [["self", Math.max(0, consumed - bought)], ["purchased", bought]], consumed);
-  renderKpiSplit("sol-consumed-split", [["self", fmtNum(Math.max(0, consumed - bought)) + " dal sole"], ["purchased", fmtNum(bought) + " dalla rete"]]);
+  const fromSun = Math.max(0, consumed - bought);
+  const [sunShare, gridShareOfConsumed] = shares(fromSun, consumed);
+  renderKpiBar("sol-consumed-bar", [["self", fromSun], ["purchased", bought]], consumed);
+  renderKpiSplit("sol-consumed-split", [
+    ["self", `${fmtNum(fromSun)} dal sole${pct(sunShare)}`],
+    ["purchased", `${fmtNum(bought)} dalla rete${pct(gridShareOfConsumed)}`]
+  ]);
 
   renderKpiBar("sol-selfcons-bar", [["self", kpis.selfConsumptionRate || 0]], 100);
   renderKpiSplit("sol-selfcons-split", [["self", "dell'energia prodotta"]]);
