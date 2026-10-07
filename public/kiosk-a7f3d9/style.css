@@ -571,6 +571,13 @@ html, body {
   color: var(--text-muted);
 }
 
+/* Inline SVG icons (see icon() in main.js) — sized by the surrounding text */
+.k-icon {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+}
+
 .k-spotlight-status {
   display: inline-block;
   font-size: 13px;
@@ -583,46 +590,155 @@ html, body {
 .k-spotlight-status--stopped { background: rgba(251,191,36,0.18); color: var(--warn); }
 .k-spotlight-status--offline { background: rgba(100,116,139,0.25); color: var(--offline); }
 
-.k-spotlight-location {
+/* Status pill and (when stopped) where the vehicle is, side by side */
+.k-spotlight-badges {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px 10px;
+  margin-bottom: 14px;
+}
+
+.k-spotlight-badges .k-spotlight-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 0;
+}
+
+/* The little status dot — pulses outward while the vehicle is moving */
+.k-spotlight-badges .k-spotlight-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.k-spotlight-badges .k-spotlight-status--moving::before {
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.28);
+}
+
+.k-spotlight-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 12px 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel-raised);
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 10px 0 12px 0;
 }
-
-.k-spotlight-location .s-zone-badge,
-.k-spotlight-location .s-stop-address {
-  font-size: 13px;
+.k-spotlight-location-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.k-spotlight-location--home { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.35); color: var(--good); }
+.k-spotlight-location--zone { background: rgba(46,143,224,0.16); border-color: rgba(46,143,224,0.4); color: var(--graus-blue); }
+.k-spotlight-location--address { color: var(--text-muted); }
 
 .k-spotlight-stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px 14px;
+  gap: 10px;
 }
 
+/* One tile per figure: value on top, small icon + label under it */
+.k-stat {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border);
+}
+
+.k-spotlight-stat-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.k-stat-unit {
+  margin-left: 0.3em;
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.k-spotlight-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.k-spotlight-stat-label .k-icon { color: var(--graus-blue); }
+
+/* Fuel level: a thin gauge that goes amber below 40% and red below 15% */
+.k-stat-meter {
+  display: block;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.k-stat-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--good);
+}
+.k-stat--mid .k-stat-meter i { background: var(--warn); }
+.k-stat--low .k-stat-meter i { background: #f87171; }
+.k-stat--low .k-spotlight-stat-value { color: #f87171; }
+
+/* "Return to base" strip: estimate in blue, in base in green, nothing to
+   show in grey */
 .k-spotlight-eta {
-  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(58, 160, 255, 0.28);
+  background: rgba(58, 160, 255, 0.1);
   font-size: 15px;
   font-weight: 700;
   color: var(--graus-blue);
 }
-
-.k-spotlight-stat-value {
+.k-eta-icon { display: inline-flex; font-size: 1.25em; }
+.k-eta-label { flex: 1; min-width: 0; }
+.k-eta-value {
   font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 700;
-  display: block;
+  font-size: 1.15em;
+  white-space: nowrap;
 }
-
-.k-spotlight-stat-label {
-  font-size: 12px;
+.k-spotlight-eta--calc,
+.k-spotlight-eta--none {
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  background: var(--bg-panel-raised);
+  border-color: var(--border);
+}
+.k-spotlight-eta--home {
+  color: var(--good);
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
 }
 
 /* ---------- Fleet roster ---------- */
@@ -676,6 +792,9 @@ html, body {
 
 .k-roster-eta {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 700;
@@ -929,6 +1048,7 @@ html.k-portrait .k-quadrant--detail-data .k-spotlight-status {
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-location {
   font-size: 18px;
+  padding: 5px 14px 5px 12px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-stat-value {
@@ -941,19 +1061,25 @@ html.k-portrait .k-quadrant--detail-data .k-spotlight-stat-label {
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-eta {
   font-size: 21px;
-  margin-top: 20px;
+  margin-top: 18px;
+  padding: 14px 18px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-name-row {
   margin-bottom: 12px;
 }
 
-html.k-portrait .k-quadrant--detail-data .k-spotlight-status {
-  margin-bottom: 20px;
+html.k-portrait .k-quadrant--detail-data .k-spotlight-badges {
+  margin-bottom: 18px;
+}
+
+html.k-portrait .k-quadrant--detail-data .k-stat {
+  padding: 14px 16px;
+  gap: 6px;
 }
 
 html.k-portrait .k-quadrant--detail-data .k-spotlight-stats {
-  gap: 20px 24px;
+  gap: 14px;
 }
 
 /* KPI strip — now the first thing under the header, with much bigger type

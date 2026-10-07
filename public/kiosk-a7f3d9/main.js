@@ -440,12 +440,36 @@ function initSpotlightMap() {
   });
 }
 
+// Line icons (Lucide, ISC license) drawn inline instead of emoji, so they
+// take the text colour of whatever they sit in and look the same on every
+// device — emoji render differently (or as tofu) on the TV's browser.
+const ICON_PATHS = {
+  pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  house: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  check: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  fuel: '<line x1="3" x2="15" y1="22" y2="22"/><line x1="4" x2="14" y1="9" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>',
+  gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>'
+};
+
+function icon(name) {
+  return `<svg class="k-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+}
+
+// Number + a smaller, muted unit ("78.865 km"), so wide values like the
+// odometer fit a half-width tile without shrinking the digits.
+function withUnit(text, unit) {
+  return `${text}<span class="k-stat-unit">${unit}</span>`;
+}
+
 function fmtFuelLevel(pct) {
-  return pct == null ? "n/d" : Math.round(pct) + "%";
+  return pct == null ? "n/d" : withUnit(Math.round(pct), "%");
 }
 
 function fmtOdometer(km) {
-  return km == null ? "n/d" : Math.round(km).toLocaleString("it-IT") + " km";
+  return km == null ? "n/d" : withUnit(Math.round(km).toLocaleString("it-IT"), "km");
 }
 
 function fmtFuelEconomy(v) {
@@ -676,7 +700,9 @@ function renderRoster(vehicles) {
     const isActive = v.id === activeVehicleId;
     const clickable = v.latitude && v.longitude;
     const etaLabel = rosterEtaByVehicle[v.id];
-    const etaHtml = etaLabel ? `<span class="k-roster-eta">🕒 ${etaLabel}</span>` : "";
+    const etaHtml = etaLabel
+      ? `<span class="k-roster-eta">${icon(etaLabel === "In sede" ? "house" : "clock")}${etaLabel}</span>`
+      : "";
     return `
       <div class="k-roster-row ${isActive ? "k-roster-row--active" : ""} ${clickable ? "k-roster-row--clickable" : ""}"
            ${clickable ? `onclick="selectVehicleManually('${v.id}')"` : ""}>
@@ -689,18 +715,31 @@ function renderRoster(vehicles) {
   }).join("");
 }
 
-// Same treatment as locationHtml() in soste.js: a colored zone badge for a
-// Geotab zone match (green if it's the home base), plain muted text for a
-// reverse-geocoded address — instead of just showing raw text.
-function vehicleLocationBadge(vehicle) {
+// Where a stopped vehicle is: a Geotab zone match (green with a house if it's
+// the home base, blue with a pin otherwise) or a reverse-geocoded address
+// (neutral). Returned as data; renderSpotlight() draws the chip.
+function vehicleLocation(vehicle) {
   if (vehicle.zoneName) {
     const isHome = vehicle.zoneName.toLowerCase().includes(HOME_ZONE_MATCH);
-    return isHome
-      ? `<span class="s-zone-badge s-zone-badge--home">🏠 ${vehicle.zoneName}</span>`
-      : `<span class="s-zone-badge">${vehicle.zoneName}</span>`;
+    return { kind: isHome ? "home" : "zone", text: vehicle.zoneName };
   }
-  if (vehicle.address) return `<span class="s-stop-address">${vehicle.address}</span>`;
-  return vehicle.location || "";
+  const text = vehicle.address || vehicle.location;
+  return text ? { kind: "address", text } : null;
+}
+
+// The "return to base" strip under the stats: calculating / ~11m / in base /
+// unavailable. Re-rendered in place when the routing answer arrives.
+function renderEta(el, state, value) {
+  if (!el) return;
+  el.className = `k-spotlight-eta k-spotlight-eta--${state}`;
+  el.innerHTML = state === "home"
+    ? `<span class="k-eta-icon">${icon("check")}</span><span class="k-eta-label">In sede</span>`
+    : `<span class="k-eta-icon">${icon("house")}</span><span class="k-eta-label">Rientro in sede</span><span class="k-eta-value">${value}</span>`;
+}
+
+function fuelLevelClass(pct) {
+  if (pct == null) return "";
+  return pct < 15 ? "k-stat--low" : pct < 40 ? "k-stat--mid" : "k-stat--ok";
 }
 
 function renderSpotlight(vehicle) {
@@ -714,8 +753,9 @@ function renderSpotlight(vehicle) {
                      : vehicle.state === "stopped" ? "Fermo"
                      : "Offline";
 
-  const locationLine = (vehicle.state === "stopped" && vehicle.location)
-    ? `<div class="k-spotlight-location">📍 ${vehicleLocationBadge(vehicle)}</div>`
+  const location = (vehicle.state === "stopped" && vehicle.location) ? vehicleLocation(vehicle) : null;
+  const locationChip = location
+    ? `<span class="k-spotlight-location k-spotlight-location--${location.kind}">${icon(location.kind === "home" ? "house" : "pin")}<span class="k-spotlight-location-text">${location.text}</span></span>`
     : "";
 
   body.innerHTML = `
@@ -728,45 +768,49 @@ function renderSpotlight(vehicle) {
       </div>
       <span class="k-spotlight-name">${vehicle.name}${vehicle.driverName ? `<span class="s-driver-badge">${vehicle.driverName}</span>` : ""}</span>
     </div>
-    <span class="k-spotlight-status k-spotlight-status--${vehicle.state}">${statusLabel}</span>
-    ${locationLine}
+    <div class="k-spotlight-badges">
+      <span class="k-spotlight-status k-spotlight-status--${vehicle.state}">${statusLabel}</span>
+      ${locationChip}
+    </div>
     <div class="k-spotlight-stats">
-      <div>
+      <div class="k-stat">
         <span class="k-spotlight-stat-value">${fmtNum(vehicle.todayDistanceKm || 0, 1)}</span>
-        <span class="k-spotlight-stat-label">km oggi</span>
+        <span class="k-spotlight-stat-label">${icon("route")}km oggi</span>
       </div>
-      <div>
+      <div class="k-stat ${fuelLevelClass(vehicle.fuelLevelPercent)}">
         <span class="k-spotlight-stat-value">${fmtFuelLevel(vehicle.fuelLevelPercent)}</span>
-        <span class="k-spotlight-stat-label">carburante</span>
+        <span class="k-spotlight-stat-label">${icon("fuel")}carburante</span>
+        ${vehicle.fuelLevelPercent != null ? `<span class="k-stat-meter"><i style="width:${Math.max(0, Math.min(100, vehicle.fuelLevelPercent))}%"></i></span>` : ""}
       </div>
-      <div>
+      <div class="k-stat">
         <span class="k-spotlight-stat-value">${fmtOdometer(vehicle.odometerKm)}</span>
-        <span class="k-spotlight-stat-label">contachilometri</span>
+        <span class="k-spotlight-stat-label">${icon("gauge")}contachilometri</span>
       </div>
-      <div>
+      <div class="k-stat">
         <span class="k-spotlight-stat-value">${fmtFuelEconomy(vehicle.fuelEconomy)}</span>
-        <span class="k-spotlight-stat-label">consumo l/100km (media 30gg)</span>
+        <span class="k-spotlight-stat-label">${icon("leaf")}consumo l/100km (media 30gg)</span>
       </div>
     </div>
-    <div class="k-spotlight-eta" id="k-spotlight-eta">Rientro in sede: calcolo…</div>
+    <div id="k-spotlight-eta"></div>
   `;
+  renderEta(document.getElementById("k-spotlight-eta"), "calc", "calcolo…");
 
   // Driving-time estimate back to base — fetched async so it doesn't block
   // the rest of the card from rendering immediately
   if (vehicle.latitude && vehicle.longitude) {
     const distToHome = haversineMeters(vehicle.latitude, vehicle.longitude, HOME_BASE.lat, HOME_BASE.lng);
-    const etaEl = document.getElementById("k-spotlight-eta");
     if (distToHome <= HOME_BASE_RADIUS_M) {
-      if (etaEl) etaEl.textContent = "📍 In sede";
+      renderEta(document.getElementById("k-spotlight-eta"), "home");
     } else {
       fetchReturnEtaMinutes(vehicle.latitude, vehicle.longitude).then(minutes => {
         const el = document.getElementById("k-spotlight-eta");
         if (!el) return; // spotlight moved on before the response arrived
-        el.textContent = minutes != null
-          ? `Rientro in sede: ~${fmtDuration(minutes * 60)}`
-          : "Rientro in sede: non disponibile";
+        if (minutes != null) renderEta(el, "ok", `~${fmtDuration(minutes * 60)}`);
+        else renderEta(el, "none", "non disponibile");
       });
     }
+  } else {
+    renderEta(document.getElementById("k-spotlight-eta"), "none", "posizione non disponibile");
   }
 
   // Mini-map: recenter on this vehicle, close zoom, single marker —
