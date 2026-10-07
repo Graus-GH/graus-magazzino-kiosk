@@ -82,13 +82,15 @@ Per ora, in fase di test, va bene così.
 |---|---|---|
 | `DRIVER_REVEAL_KEY` | Chiave segreta per vedere i nomi conducente in tutte e tre le dashboard. Impostane una a piacere (es. una stringa casuale), poi apri una pagina aggiungendo `?key=quella-stringa` in fondo all'URL — solo così i nomi compaiono, sulla TV pubblica restano sempre nascosti | (nessuno — funzione disattivata finché non la imposti) |
 | `TOMTOM_API_KEY` | Chiave TomTom (piano gratuito, 200.000 tile/mese) per il layer traffico sulle due mappe della dashboard Flotta | (nessuno — niente layer traffico) |
-| `CARTO_API_KEY` | Chiave gratuita CARTO basemaps (da chiedere su carto.com/basemaps/apikey, senza carta) per usare la mappa chiara "Positron" al posto di OpenStreetMap sulla mappa grande. Limitarla al dominio del sito dalle impostazioni CARTO. Se la chiave non è accettata (revocata, quota finita) la mappa torna da sola a OpenStreetMap | (nessuno — resta OpenStreetMap) |
 
 ## Mappe della dashboard Flotta
 
-- **Mappa grande**: OpenStreetMap (raster) di base; con la chiave `CARTO_API_KEY` diventa CARTO Positron (raster).
-- **Mappa di dettaglio**: si apre sulle foto aeree (Esri World Imagery); il pulsante in alto a destra passa alla mappa stradale.
-- **Prova vettoriale (OpenFreeMap + MapLibre, gratis, senza chiave)**: aggiungendo `?vector=1` all'indirizzo la mappa grande diventa OpenFreeMap "Positron" e la mappa di dettaglio mostra sopra le foto aeree i nomi di alberghi, bar, ristoranti, negozi, impianti, vie e località (dati OpenStreetMap). Serve WebGL, perciò è solo su richiesta finché non è provato sulla TV: l'indirizzo `/tv-prova` apre la dashboard così. In questa modalità accanto ai crediti, in basso a destra sulla mappa grande, compare tra parentesi lo stato (`vettoriale OK` oppure il motivo per cui non è attivo). Se qualcosa non va (WebGL assente, librerie non caricate, tile che non arrivano) resta la mappa raster normale.
+Le mappe sono vettoriali (OpenFreeMap, disegnate da MapLibre via WebGL): gratis, senza chiavi né limiti, uso commerciale consentito, dati OpenStreetMap.
+
+- **Mappa grande**: OpenFreeMap "Positron" (chiara, a basso contrasto, così veicoli e traffico risaltano).
+- **Mappa di dettaglio**: si apre sulle foto aeree (Esri World Imagery) con sopra i nomi di alberghi, bar, ristoranti, negozi, impianti, vie e località; il pulsante in alto a destra passa alla mappa stradale OpenStreetMap (senza nomi sovrapposti).
+- **Interruttori nell'indirizzo**: `?vector=0` spegne le mappe vettoriali e torna alle mappe raster (OpenStreetMap + foto aeree senza nomi); `?vector=debug` mostra tra parentesi, accanto ai crediti in basso a destra sulla mappa grande, lo stato (`vettoriale OK` oppure il motivo per cui non è attivo).
+- **Se qualcosa non va** (WebGL assente, librerie non caricate, tile che non arrivano, contesto WebGL perso) la mappa grande resta o torna da sola su OpenStreetMap raster, e la mappa di dettaglio resta sulle foto aeree senza nomi. Il browser della TV ha avuto in passato problemi di rendering GPU (vedi `main.js`), motivo per cui esiste questo ripiego.
 
 ## Fotovoltaico (SolarEdge, API V2 con OAuth)
 

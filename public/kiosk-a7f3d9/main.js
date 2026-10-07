@@ -41,27 +41,27 @@ const HOME_BASE = { lat: 46.6305, lng: 11.8956 };
 const HOME_BASE_RADIUS_M = 300; // within this distance, just say "In sede"
 const HOME_ZONE_MATCH = "graus"; // case-insensitive substring match on zone name, same as Analisi Soste
 
-// Base maps. The big overview map uses CARTO Positron (light, low-contrast,
-// so vehicles and the traffic overlay stand out on a TV) once a CARTO key is
-// configured — see api/carto-key.js — and plain OpenStreetMap until then, or
-// if Positron ever stops answering. The vehicle-detail map opens on aerial
-// photos (Esri World Imagery).
+// Base maps. The big overview map is OpenFreeMap "Positron" (light and
+// low-contrast, so vehicles and the traffic overlay stand out on a TV); the
+// vehicle-detail map opens on aerial photos (Esri World Imagery) with place,
+// street and business names laid over them. Plain OpenStreetMap raster tiles
+// are the fallback for the big map (and the detail map's street view).
 const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const CARTO_POSITRON_URL_BASE = "https://basemaps.cartocdn.com/rastertiles/positron/{z}/{x}/{y}.png";
 const SPOTLIGHT_SATELLITE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const OSM_ATTRIBUTION = "© OpenStreetMap";
-const CARTO_ATTRIBUTION = "© OpenStreetMap contributors, © CARTO";
 const ESRI_ATTRIBUTION = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
 const SPOTLIGHT_ZOOM = 16;
 
 // Vector maps from OpenFreeMap (free, no key, commercial use allowed), drawn
-// by MapLibre GL — which needs WebGL. Opt-in with ?vector=1 while it's being
-// tried on the TV, whose browser has a history of GPU rendering problems (see
-// the top of this file): the big map gets the light "Positron" style, the
-// detail map gets place/POI/street names laid over the aerial photos (the
-// open-data counterpart of Google's hybrid labels). Everything falls back to
-// the raster maps above if WebGL, the libraries or the tiles aren't available.
-const VECTOR_MAPS = new URLSearchParams(window.location.search).get("vector") === "1";
+// by MapLibre GL — which needs WebGL, and the TV's browser has a history of
+// GPU rendering problems (see the top of this file). They're on by default,
+// since it was tried and works on the TV; everything falls back to the raster
+// maps above if WebGL, the libraries or the tiles aren't available. URL
+// switches: ?vector=0 turns them off; ?vector=debug shows their status next
+// to the credits (no console needed on the TV).
+const VECTOR_PARAM = new URLSearchParams(window.location.search).get("vector");
+const VECTOR_MAPS = VECTOR_PARAM !== "0";
+const VECTOR_DEBUG = VECTOR_PARAM === "debug";
 const OPENFREEMAP_POSITRON_STYLE = "https://tiles.openfreemap.org/styles/positron";
 const OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const OPENFREEMAP_ATTRIBUTION = "OpenFreeMap © OpenMapTiles Data from OpenStreetMap";
@@ -80,9 +80,8 @@ const TRAFFIC_REFRESH_MS = 15 * 60 * 1000;
 
 let map;
 let tileLayer;
-let cartoUrl = null; // set once /api/carto-key hands back a key
 let glBaseActive = false; // big map currently drawn by OpenFreeMap/MapLibre
-let vectorStatus = ""; // shown next to the credits in ?vector=1 mode, so trying it on the TV needs no console
+let vectorStatus = ""; // shown next to the credits with ?vector=debug
 let trafficActive = false;
 let trafficLayer;
 let spotlightTrafficLayer;
@@ -133,33 +132,11 @@ function initMap() {
 function updateMapAttribution() {
   const el = document.getElementById("k-traffic-attribution");
   if (!el) return;
-  const base = glBaseActive ? OPENFREEMAP_ATTRIBUTION
-    : tileLayer && tileLayer.options.isCarto ? CARTO_ATTRIBUTION : OSM_ATTRIBUTION;
-  const parts = [base];
+  const parts = [glBaseActive ? OPENFREEMAP_ATTRIBUTION : OSM_ATTRIBUTION];
   if (trafficActive) parts.push("Traffico © TomTom");
-  if (VECTOR_MAPS && vectorStatus) parts.push("[" + vectorStatus + "]");
+  if (VECTOR_DEBUG && vectorStatus) parts.push("[" + vectorStatus + "]");
   el.textContent = parts.join(" · ");
   el.hidden = false;
-}
-
-// CARTO answers a missing, rejected or over-quota key with a perfectly normal
-// 200 PNG that just reads "API KEY REQUIRED" — so tile errors never fire and a
-// bad key would silently put a watermarked map on the TV. Ask for the same
-// tile with the real key and with a bogus one: identical bytes mean the real
-// key isn't being honored.
-async function cartoKeyWorks(urlTemplate) {
-  const fetchTile = url => fetch(
-    url.replace("{z}", 11).replace("{x}", 1088).replace("{y}", 724),
-    { cache: "no-store" }
-  ).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("HTTP " + r.status))));
-
-  const [real, bogus] = await Promise.all([
-    fetchTile(urlTemplate),
-    fetchTile(urlTemplate.replace(/key=[^&]*/, "key=invalid"))
-  ]);
-  const a = new Uint8Array(real);
-  const b = new Uint8Array(bogus);
-  return a.length !== b.length || a.some((v, i) => v !== b[i]);
 }
 
 // null if MapLibre can run here, otherwise a short reason.
@@ -233,70 +210,8 @@ function tryOpenFreeMapBase() {
 }
 
 async function initBaseMapStyle() {
-  if (VECTOR_MAPS && (await tryOpenFreeMapBase())) {
-    updateMapAttribution();
-    return;
-  }
-  updateMapAttribution(); // shows why the vector map isn't in use, in ?vector=1 mode
-  await initCartoBase();
-}
-
-// Big map, raster path: OpenStreetMap by default, CARTO Positron once a
-// working key exists. OSM stays underneath until Positron has actually
-// delivered tiles, and comes back (also later, hourly re-check) if Positron
-// stops being usable — a watermarked or blank map on a wall TV is worse than
-// a busier one.
-async function initCartoBase() {
-  try {
-    const resp = await fetch("/api/carto-key");
-    const data = await resp.json();
-    if (!data.key) return; // not configured yet — keep OpenStreetMap
-
-    const url = CARTO_POSITRON_URL_BASE + "?key=" + encodeURIComponent(data.key);
-    if (!(await cartoKeyWorks(url))) {
-      console.error("Chiave CARTO non accettata — resto su OpenStreetMap");
-      return;
-    }
-
-    cartoUrl = url;
-    const osmLayer = tileLayer;
-    const positron = L.tileLayer(cartoUrl, { maxZoom: 19, isCarto: true }).addTo(map);
-    positron.bringToBack(); // under the traffic overlay and the markers
-
-    const backToOsm = reason => {
-      if (!map.hasLayer(positron)) return;
-      console.error(reason + " — torno a OpenStreetMap");
-      map.removeLayer(positron);
-      osmLayer.addTo(map).bringToBack();
-      tileLayer = osmLayer;
-      cartoUrl = null;
-      updateMapAttribution();
-    };
-
-    let delivered = 0;
-    let failed = 0;
-    positron.on("tileload", () => { delivered++; });
-    positron.on("tileerror", () => {
-      failed++;
-      if (delivered === 0 && failed >= 3) backToOsm("CARTO Positron non risponde");
-    });
-    positron.on("load", () => {
-      if (delivered > 0 && map.hasLayer(osmLayer)) {
-        map.removeLayer(osmLayer);
-        tileLayer = positron;
-        updateMapAttribution();
-      }
-    });
-    updateMapAttribution();
-
-    // A network hiccup here is not a reason to swap back — only a verdict is.
-    setInterval(async () => {
-      const works = await cartoKeyWorks(url).catch(() => true);
-      if (!works) backToOsm("Chiave CARTO non più accettata (revocata o quota esaurita)");
-    }, 60 * 60 * 1000);
-  } catch (err) {
-    console.error("Errore caricamento stile mappa CARTO:", err);
-  }
+  if (VECTOR_MAPS) await tryOpenFreeMapBase();
+  updateMapAttribution(); // credits for whichever base map ended up in use
 }
 
 async function initTrafficLayer() {
@@ -491,9 +406,7 @@ function initSpotlightMap() {
     if (spotlightTileLayer) spotlightMap.removeLayer(spotlightTileLayer);
     spotlightTileLayer = (spotlightIsSatellite
       ? L.tileLayer(SPOTLIGHT_SATELLITE_URL, { maxZoom: 19, attribution: ESRI_ATTRIBUTION })
-      : cartoUrl
-        ? L.tileLayer(cartoUrl, { maxZoom: 19, attribution: CARTO_ATTRIBUTION })
-        : L.tileLayer(OSM_TILE_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION })
+      : L.tileLayer(OSM_TILE_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION })
     ).addTo(spotlightMap);
     spotlightTileLayer.bringToBack(); // keep the traffic overlay above the base
     // The name labels only belong on the aerial photos; the street map has its own

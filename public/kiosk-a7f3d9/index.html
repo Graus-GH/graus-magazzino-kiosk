@@ -11,12 +11,11 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Vector maps (OpenFreeMap, drawn by MapLibre) — loaded only with ?vector=1,
-     see main.js. Written synchronously so they're ready before main.js runs;
-     without the flag the page doesn't download them at all, and with it the
-     page still works if they fail to load. -->
+<!-- Vector maps (OpenFreeMap, drawn by MapLibre) — see main.js. Written
+     synchronously so they're ready before main.js runs; skipped with
+     ?vector=0, and the page still works if they fail to load. -->
 <script>
-if (/[?&]vector=1(&|$)/.test(location.search)) {
+if (!/[?&]vector=0(&|$)/.test(location.search)) {
   document.write(
     '<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />' +
     '<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"><\/script>' +
@@ -186,6 +185,6 @@ if (/[?&]vector=1(&|$)/.test(location.search)) {
   </div>
 
   <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
-  <script src="/kiosk-a7f3d9/main.js?v=38"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=39"></script>
 </body>
 </html>
