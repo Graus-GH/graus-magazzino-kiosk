@@ -84,6 +84,12 @@ Per ora, in fase di test, va bene così.
 | `TOMTOM_API_KEY` | Chiave TomTom (piano gratuito, 200.000 tile/mese) per il layer traffico sulle due mappe della dashboard Flotta | (nessuno — niente layer traffico) |
 | `CARTO_API_KEY` | Chiave gratuita CARTO basemaps (da chiedere su carto.com/basemaps/apikey, senza carta) per usare la mappa chiara "Positron" al posto di OpenStreetMap sulla mappa grande. Limitarla al dominio del sito dalle impostazioni CARTO. Se la chiave non è accettata (revocata, quota finita) la mappa torna da sola a OpenStreetMap | (nessuno — resta OpenStreetMap) |
 
+## Mappe della dashboard Flotta
+
+- **Mappa grande**: OpenStreetMap (raster) di base; con la chiave `CARTO_API_KEY` diventa CARTO Positron (raster).
+- **Mappa di dettaglio**: si apre sulle foto aeree (Esri World Imagery); il pulsante in alto a destra passa alla mappa stradale.
+- **Prova vettoriale (OpenFreeMap + MapLibre, gratis, senza chiave)**: aggiungendo `?vector=1` all'indirizzo la mappa grande diventa OpenFreeMap "Positron" e la mappa di dettaglio mostra sopra le foto aeree i nomi di alberghi, bar, ristoranti, negozi, impianti, vie e località (dati OpenStreetMap). Serve WebGL, perciò è solo su richiesta finché non è provato sulla TV: l'indirizzo `/tv-prova` apre la dashboard così. In questa modalità accanto ai crediti, in basso a destra sulla mappa grande, compare tra parentesi lo stato (`vettoriale OK` oppure il motivo per cui non è attivo). Se qualcosa non va (WebGL assente, librerie non caricate, tile che non arrivano) resta la mappa raster normale.
+
 ## Fotovoltaico (SolarEdge, API V2 con OAuth)
 
 La pagina Energia legge la Monitoring API V2 di SolarEdge (la V1 con API key viene spenta il 1 novembre 2026). Il token OAuth dura 2 ore e il refresh token **ruota a ogni rinnovo**, quindi la coppia più recente viene salvata su **Upstash Redis** (integrazione dal Marketplace di Vercel, piano gratuito).

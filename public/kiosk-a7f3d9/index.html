@@ -11,6 +11,20 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- Vector maps (OpenFreeMap, drawn by MapLibre) — loaded only with ?vector=1,
+     see main.js. Written synchronously so they're ready before main.js runs;
+     without the flag the page doesn't download them at all, and with it the
+     page still works if they fail to load. -->
+<script>
+if (/[?&]vector=1(&|$)/.test(location.search)) {
+  document.write(
+    '<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />' +
+    '<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"><\/script>' +
+    '<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"><\/script>'
+  );
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
@@ -172,6 +186,6 @@
   </div>
 
   <script src="/kiosk-a7f3d9/keyPersist.js?v=3"></script>
-  <script src="/kiosk-a7f3d9/main.js?v=33"></script>
+  <script src="/kiosk-a7f3d9/main.js?v=38"></script>
 </body>
 </html>

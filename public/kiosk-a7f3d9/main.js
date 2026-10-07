@@ -54,6 +54,19 @@ const CARTO_ATTRIBUTION = "© OpenStreetMap contributors, © CARTO";
 const ESRI_ATTRIBUTION = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
 const SPOTLIGHT_ZOOM = 16;
 
+// Vector maps from OpenFreeMap (free, no key, commercial use allowed), drawn
+// by MapLibre GL — which needs WebGL. Opt-in with ?vector=1 while it's being
+// tried on the TV, whose browser has a history of GPU rendering problems (see
+// the top of this file): the big map gets the light "Positron" style, the
+// detail map gets place/POI/street names laid over the aerial photos (the
+// open-data counterpart of Google's hybrid labels). Everything falls back to
+// the raster maps above if WebGL, the libraries or the tiles aren't available.
+const VECTOR_MAPS = new URLSearchParams(window.location.search).get("vector") === "1";
+const OPENFREEMAP_POSITRON_STYLE = "https://tiles.openfreemap.org/styles/positron";
+const OPENFREEMAP_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const OPENFREEMAP_ATTRIBUTION = "OpenFreeMap © OpenMapTiles Data from OpenStreetMap";
+const LABEL_TEXT_SCALE = 1.3; // the detail map is small on the TV: names need to be bigger than the style's default
+
 // Live traffic overlay (TomTom) — on both the big overview map and the
 // small vehicle-detail map. Redrawn periodically rather than on every 60s
 // data refresh (which would only re-fetch tiles anyway if the view
@@ -68,6 +81,8 @@ const TRAFFIC_REFRESH_MS = 15 * 60 * 1000;
 let map;
 let tileLayer;
 let cartoUrl = null; // set once /api/carto-key hands back a key
+let glBaseActive = false; // big map currently drawn by OpenFreeMap/MapLibre
+let vectorStatus = ""; // shown next to the credits in ?vector=1 mode, so trying it on the TV needs no console
 let trafficActive = false;
 let trafficLayer;
 let spotlightTrafficLayer;
@@ -85,7 +100,10 @@ let resumeTimer = null;
 let rosterEtaByVehicle = {}; // id -> "In sede" | "~Nm" | null, filled in async per refresh()
 
 function initMap() {
-  map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
+  // zoomAnimation off: with any3d forced off above there is no zoom animation
+  // anyway, but Leaflet still *reports* it enabled, which makes the MapLibre
+  // layer plugin reach for a proxy element that doesn't exist.
+  map = L.map("k-map", { zoomControl: true, attributionControl: false, zoomAnimation: false }).setView(CENTER, 11);
   tileLayer = L.tileLayer(OSM_TILE_URL, { maxZoom: 19 }).addTo(map);
   map.on("zoomend moveend", declutterLabels);
 
@@ -100,6 +118,7 @@ function initMap() {
     map.invalidateSize();
     if (tileLayer) tileLayer.redraw();
     if (trafficLayer) trafficLayer.redraw();
+    // (tileLayer is null while the vector base map is in use)
   };
   setTimeout(refreshMapSize, 300);
   setTimeout(refreshMapSize, 1200);
@@ -114,8 +133,11 @@ function initMap() {
 function updateMapAttribution() {
   const el = document.getElementById("k-traffic-attribution");
   if (!el) return;
-  const parts = [tileLayer && tileLayer.options.isCarto ? CARTO_ATTRIBUTION : OSM_ATTRIBUTION];
+  const base = glBaseActive ? OPENFREEMAP_ATTRIBUTION
+    : tileLayer && tileLayer.options.isCarto ? CARTO_ATTRIBUTION : OSM_ATTRIBUTION;
+  const parts = [base];
   if (trafficActive) parts.push("Traffico © TomTom");
+  if (VECTOR_MAPS && vectorStatus) parts.push("[" + vectorStatus + "]");
   el.textContent = parts.join(" · ");
   el.hidden = false;
 }
@@ -140,11 +162,91 @@ async function cartoKeyWorks(urlTemplate) {
   return a.length !== b.length || a.some((v, i) => v !== b[i]);
 }
 
-// Big map: OpenStreetMap by default, CARTO Positron once a working key exists.
-// OSM stays underneath until Positron has actually delivered tiles, and comes
-// back (also later, hourly re-check) if Positron stops being usable — a
-// watermarked or blank map on a wall TV is worse than a busier one.
+// null if MapLibre can run here, otherwise a short reason.
+function vectorMapsProblem() {
+  if (!window.maplibregl || !L.maplibreGL) return "libreria non caricata";
+  try {
+    const canvas = document.createElement("canvas");
+    if (!(canvas.getContext("webgl2") || canvas.getContext("webgl"))) return "WebGL assente";
+  } catch (err) {
+    return "WebGL assente";
+  }
+  return null;
+}
+
+// Big map -> OpenFreeMap Positron (vector). The OSM raster layer stays
+// underneath until the vector tiles have really rendered, and comes back if
+// the GL context is lost later; resolves true once the vector map is live.
+function tryOpenFreeMapBase() {
+  return new Promise(resolve => {
+    const problem = vectorMapsProblem();
+    if (problem) {
+      vectorStatus = "vettoriale non attivo: " + problem;
+      return resolve(false);
+    }
+
+    if (!map.getPane("baseMapPane")) map.createPane("baseMapPane").style.zIndex = 150; // under the tile pane (traffic) and markers
+    const osmLayer = tileLayer;
+    let settled = false;
+    let gl;
+
+    const fail = why => {
+      if (settled) return;
+      settled = true;
+      vectorStatus = "vettoriale non attivo: " + why;
+      try { if (gl) map.removeLayer(gl); } catch (err) { /* already gone */ }
+      resolve(false);
+    };
+
+    try {
+      gl = L.maplibreGL({ style: OPENFREEMAP_POSITRON_STYLE, pane: "baseMapPane" }).addTo(map);
+    } catch (err) {
+      return fail("errore " + err.message);
+    }
+    const glMap = gl.getMaplibreMap();
+    const timer = setTimeout(() => fail("nessun tile entro 25s"), 25000);
+
+    glMap.on("idle", () => {
+      if (settled) return;
+      // idle also fires when every tile failed; only a map that actually has vector data counts
+      if (glMap.querySourceFeatures("openmaptiles", { sourceLayer: "transportation" }).length === 0) return;
+      settled = true;
+      clearTimeout(timer);
+      map.removeLayer(osmLayer);
+      tileLayer = null;
+      glBaseActive = true;
+      vectorStatus = "vettoriale OK";
+      resolve(true);
+    });
+
+    glMap.getCanvas().addEventListener("webglcontextlost", () => {
+      if (!glBaseActive) return fail("contesto WebGL perso");
+      console.error("Contesto WebGL perso — torno a OpenStreetMap");
+      glBaseActive = false;
+      vectorStatus = "vettoriale interrotto (WebGL perso)";
+      map.removeLayer(gl);
+      osmLayer.addTo(map).bringToBack();
+      tileLayer = osmLayer;
+      updateMapAttribution();
+    });
+  });
+}
+
 async function initBaseMapStyle() {
+  if (VECTOR_MAPS && (await tryOpenFreeMapBase())) {
+    updateMapAttribution();
+    return;
+  }
+  updateMapAttribution(); // shows why the vector map isn't in use, in ?vector=1 mode
+  await initCartoBase();
+}
+
+// Big map, raster path: OpenStreetMap by default, CARTO Positron once a
+// working key exists. OSM stays underneath until Positron has actually
+// delivered tiles, and comes back (also later, hourly re-check) if Positron
+// stops being usable — a watermarked or blank map on a wall TV is worse than
+// a busier one.
+async function initCartoBase() {
   try {
     const resp = await fetch("/api/carto-key");
     const data = await resp.json();
@@ -283,10 +385,103 @@ function declutterLabels() {
   });
 }
 
+// Scales a MapLibre text-size value (plain number, legacy stops, or the
+// "interpolate"/"step" expressions the OpenFreeMap styles use) by `k`.
+function scaleTextSize(value, k) {
+  if (typeof value === "number") return value * k;
+  if (value && Array.isArray(value.stops)) {
+    return { ...value, stops: value.stops.map(([zoom, size]) => [zoom, scaleTextSize(size, k)]) };
+  }
+  if (Array.isArray(value) && value[0] === "interpolate") {
+    return value.map((item, i) => (i >= 4 && i % 2 === 0 ? scaleTextSize(item, k) : item)); // outputs sit at 4, 6, 8…
+  }
+  if (Array.isArray(value) && value[0] === "step") {
+    return value.map((item, i) => (i >= 2 && i % 2 === 0 ? scaleTextSize(item, k) : item)); // outputs sit at 2, 4, 6…
+  }
+  return value;
+}
+
+// OpenFreeMap "Liberty" reduced to its text: place, water, street and POI
+// names (bars, hotels, shops…) in white with a dark halo, bigger than the
+// default — meant to sit on top of aerial imagery, with no drawn map under it.
+// Which kinds of place get a name on the detail map. Deliberately leaves out
+// bus stops (OpenStreetMap has a very long, trilingual name for each),
+// schools, parking and street furniture: the point is to recognize where a
+// vehicle is — hotels, bars, restaurants, shops, lifts.
+const LABEL_POI_CLASSES = [
+  "lodging", "restaurant", "bar", "cafe", "fast_food", "ice_cream", "shop", "grocery", "bakery",
+  "pharmacy", "hospital", "bank", "fuel", "campsite", "attraction", "aerialway", "museum",
+  "sports_centre", "stadium", "town_hall", "post"
+];
+
+function labelsOnlyStyle(libertyStyle) {
+  const whiteWithHalo = layer => {
+    layer.layout["text-size"] = scaleTextSize(layer.layout["text-size"], LABEL_TEXT_SCALE);
+    layer.layout["text-font"] = ["Noto Sans Bold"];
+    layer.paint["text-color"] = "#ffffff";
+    layer.paint["text-halo-color"] = "rgba(8, 12, 20, 0.92)";
+    layer.paint["text-halo-width"] = 2.2;
+    layer.paint["text-halo-blur"] = 0;
+    return layer;
+  };
+  const copy = l => ({ ...l, layout: { ...l.layout }, paint: { ...l.paint } });
+
+  // Places, streets, water — as in the style, just restyled (towns in Italian
+  // rather than the long "Corvara - Corvara in Badia" the data carries)
+  const base = libertyStyle.layers
+    .filter(l => l.type === "symbol" && !/^poi_|shield|arrow|airport|housenumber/.test(l.id))
+    .map(l => {
+      const layer = whiteWithHalo(copy(l));
+      if (l["source-layer"] === "place") {
+        layer.layout["text-field"] = ["coalesce", ["get", "name:it"], ["get", "name:latin"], ["get", "name"]];
+      }
+      return layer;
+    });
+
+  // One POI layer instead of the style's three rank bands (which let bus
+  // stops crowd out hotels): chosen classes only, names only, most important
+  // first when labels collide.
+  const poiTemplate = libertyStyle.layers.find(l => l.id === "poi_r7");
+  const poi = copy(poiTemplate);
+  poi.id = "poi_names";
+  poi.minzoom = 15;
+  delete poi.maxzoom;
+  poi.filter = ["all",
+    ["match", ["geometry-type"], ["MultiPoint", "Point"], true, false],
+    ["match", ["get", "class"], LABEL_POI_CLASSES, true, false]
+  ];
+  delete poi.layout["icon-image"]; // the icons are dark glyphs that vanish on imagery
+  delete poi.layout["icon-size"];
+  delete poi.layout["text-offset"];
+  delete poi.layout["text-variable-anchor"];
+  poi.layout["text-anchor"] = "center";
+  poi.layout["symbol-sort-key"] = ["get", "rank"];
+  poi.layout["text-padding"] = 3;
+
+  return { ...libertyStyle, layers: [...base, whiteWithHalo(poi)] };
+}
+
+// Detail map: names laid over the aerial photos as a transparent MapLibre
+// layer. Silently skipped if WebGL or the style isn't available.
+async function initSpotlightLabels() {
+  const problem = vectorMapsProblem();
+  if (problem) return;
+  try {
+    const libertyStyle = await (await fetch(OPENFREEMAP_LIBERTY_STYLE)).json();
+    if (!spotlightMap.getPane("labelsPane")) spotlightMap.createPane("labelsPane").style.zIndex = 250; // over the imagery and traffic, under the vehicle marker
+    L.maplibreGL({ style: labelsOnlyStyle(libertyStyle), pane: "labelsPane" }).addTo(spotlightMap);
+    spotlightMap.attributionControl.addAttribution(OPENFREEMAP_ATTRIBUTION);
+    spotlightMap.getPane("labelsPane").style.display = spotlightIsSatellite ? "" : "none";
+  } catch (err) {
+    console.error("Errore caricamento etichette mappa di dettaglio:", err);
+  }
+}
+
 function initSpotlightMap() {
   spotlightMap = L.map("k-spotlight-map", {
     zoomControl: true,
     attributionControl: true,
+    zoomAnimation: false, // see initMap()
     dragging: true,
     scrollWheelZoom: true,
     doubleClickZoom: true,
@@ -301,9 +496,13 @@ function initSpotlightMap() {
         : L.tileLayer(OSM_TILE_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION })
     ).addTo(spotlightMap);
     spotlightTileLayer.bringToBack(); // keep the traffic overlay above the base
+    // The name labels only belong on the aerial photos; the street map has its own
+    const labels = spotlightMap.getPane("labelsPane");
+    if (labels) labels.style.display = spotlightIsSatellite ? "" : "none";
   };
   showSpotlightBase();
   document.getElementById("k-spotlight-satellite").classList.toggle("k-map-sat-btn--active", spotlightIsSatellite);
+  if (VECTOR_MAPS) initSpotlightLabels();
 
   // Manual interaction with the detail map pauses the auto-rotation too,
   // same courtesy as clicking a vehicle in the roster.

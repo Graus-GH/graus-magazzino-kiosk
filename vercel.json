@@ -7,6 +7,7 @@
   },
   "redirects": [
     { "source": "/tv", "destination": "/kiosk-a7f3d9/?layout=verticale", "permanent": false },
+    { "source": "/tv-prova", "destination": "/kiosk-a7f3d9/?layout=verticale&vector=1", "permanent": false },
     { "source": "/tv2", "destination": "/kiosk-a7f3d9/performance.html?layout=verticale", "permanent": false },
     { "source": "/tv3", "destination": "/kiosk-a7f3d9/solar.html?layout=verticale", "permanent": false },
     { "source": "/tv3-evento", "destination": "/kiosk-a7f3d9/evento.html?layout=verticale", "permanent": false }
