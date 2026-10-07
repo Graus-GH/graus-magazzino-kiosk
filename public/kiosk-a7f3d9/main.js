@@ -41,10 +41,17 @@ const HOME_BASE = { lat: 46.6305, lng: 11.8956 };
 const HOME_BASE_RADIUS_M = 300; // within this distance, just say "In sede"
 const HOME_ZONE_MATCH = "graus"; // case-insensitive substring match on zone name, same as Analisi Soste
 
-// Also used for the main overview map — no style switcher anymore (the
-// kiosk isn't interactive, so a toggle nobody can reach wasn't useful).
-const SPOTLIGHT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+// Base maps. The big overview map uses CARTO Positron (light, low-contrast,
+// so vehicles and the traffic overlay stand out on a TV) once a CARTO key is
+// configured — see api/carto-key.js — and plain OpenStreetMap until then, or
+// if Positron ever stops answering. The vehicle-detail map opens on aerial
+// photos (Esri World Imagery).
+const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const CARTO_POSITRON_URL_BASE = "https://basemaps.cartocdn.com/rastertiles/positron/{z}/{x}/{y}.png";
 const SPOTLIGHT_SATELLITE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const OSM_ATTRIBUTION = "© OpenStreetMap";
+const CARTO_ATTRIBUTION = "© OpenStreetMap contributors, © CARTO";
+const ESRI_ATTRIBUTION = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
 const SPOTLIGHT_ZOOM = 16;
 
 // Live traffic overlay (TomTom) — on both the big overview map and the
@@ -60,6 +67,8 @@ const TRAFFIC_REFRESH_MS = 15 * 60 * 1000;
 
 let map;
 let tileLayer;
+let cartoUrl = null; // set once /api/carto-key hands back a key
+let trafficActive = false;
 let trafficLayer;
 let spotlightTrafficLayer;
 let markersByDevice = {}; // id -> Leaflet marker
@@ -69,7 +78,7 @@ let activeVehicleId = null;
 let nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 let spotlightMap;
 let spotlightTileLayer;
-let spotlightIsSatellite = false;
+let spotlightIsSatellite = true; // opens on aerial photos; the button switches to the street map
 let spotlightMarker;
 let spotlightTimer = null;
 let resumeTimer = null;
@@ -77,7 +86,7 @@ let rosterEtaByVehicle = {}; // id -> "In sede" | "~Nm" | null, filled in async 
 
 function initMap() {
   map = L.map("k-map", { zoomControl: true, attributionControl: false }).setView(CENTER, 11);
-  tileLayer = L.tileLayer(SPOTLIGHT_TILE_URL, { maxZoom: 19 }).addTo(map);
+  tileLayer = L.tileLayer(OSM_TILE_URL, { maxZoom: 19 }).addTo(map);
   map.on("zoomend moveend", declutterLabels);
 
   // Leaflet measures its container once at creation time and only loads
@@ -100,6 +109,94 @@ function initMap() {
   window.addEventListener("resize", refreshMapSize);
 }
 
+// The big map has no Leaflet attribution control (too cluttered on a TV), so
+// the credits the providers require go in one small line in the corner.
+function updateMapAttribution() {
+  const el = document.getElementById("k-traffic-attribution");
+  if (!el) return;
+  const parts = [tileLayer && tileLayer.options.isCarto ? CARTO_ATTRIBUTION : OSM_ATTRIBUTION];
+  if (trafficActive) parts.push("Traffico © TomTom");
+  el.textContent = parts.join(" · ");
+  el.hidden = false;
+}
+
+// CARTO answers a missing, rejected or over-quota key with a perfectly normal
+// 200 PNG that just reads "API KEY REQUIRED" — so tile errors never fire and a
+// bad key would silently put a watermarked map on the TV. Ask for the same
+// tile with the real key and with a bogus one: identical bytes mean the real
+// key isn't being honored.
+async function cartoKeyWorks(urlTemplate) {
+  const fetchTile = url => fetch(
+    url.replace("{z}", 11).replace("{x}", 1088).replace("{y}", 724),
+    { cache: "no-store" }
+  ).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("HTTP " + r.status))));
+
+  const [real, bogus] = await Promise.all([
+    fetchTile(urlTemplate),
+    fetchTile(urlTemplate.replace(/key=[^&]*/, "key=invalid"))
+  ]);
+  const a = new Uint8Array(real);
+  const b = new Uint8Array(bogus);
+  return a.length !== b.length || a.some((v, i) => v !== b[i]);
+}
+
+// Big map: OpenStreetMap by default, CARTO Positron once a working key exists.
+// OSM stays underneath until Positron has actually delivered tiles, and comes
+// back (also later, hourly re-check) if Positron stops being usable — a
+// watermarked or blank map on a wall TV is worse than a busier one.
+async function initBaseMapStyle() {
+  try {
+    const resp = await fetch("/api/carto-key");
+    const data = await resp.json();
+    if (!data.key) return; // not configured yet — keep OpenStreetMap
+
+    const url = CARTO_POSITRON_URL_BASE + "?key=" + encodeURIComponent(data.key);
+    if (!(await cartoKeyWorks(url))) {
+      console.error("Chiave CARTO non accettata — resto su OpenStreetMap");
+      return;
+    }
+
+    cartoUrl = url;
+    const osmLayer = tileLayer;
+    const positron = L.tileLayer(cartoUrl, { maxZoom: 19, isCarto: true }).addTo(map);
+    positron.bringToBack(); // under the traffic overlay and the markers
+
+    const backToOsm = reason => {
+      if (!map.hasLayer(positron)) return;
+      console.error(reason + " — torno a OpenStreetMap");
+      map.removeLayer(positron);
+      osmLayer.addTo(map).bringToBack();
+      tileLayer = osmLayer;
+      cartoUrl = null;
+      updateMapAttribution();
+    };
+
+    let delivered = 0;
+    let failed = 0;
+    positron.on("tileload", () => { delivered++; });
+    positron.on("tileerror", () => {
+      failed++;
+      if (delivered === 0 && failed >= 3) backToOsm("CARTO Positron non risponde");
+    });
+    positron.on("load", () => {
+      if (delivered > 0 && map.hasLayer(osmLayer)) {
+        map.removeLayer(osmLayer);
+        tileLayer = positron;
+        updateMapAttribution();
+      }
+    });
+    updateMapAttribution();
+
+    // A network hiccup here is not a reason to swap back — only a verdict is.
+    setInterval(async () => {
+      const works = await cartoKeyWorks(url).catch(() => true);
+      if (!works) backToOsm("Chiave CARTO non più accettata (revocata o quota esaurita)");
+    }, 60 * 60 * 1000);
+  } catch (err) {
+    console.error("Errore caricamento stile mappa CARTO:", err);
+  }
+}
+
 async function initTrafficLayer() {
   try {
     const resp = await fetch("/api/tomtom-key");
@@ -112,8 +209,8 @@ async function initTrafficLayer() {
     const trafficUrl = TOMTOM_TRAFFIC_URL_BASE + "?key=" + encodeURIComponent(data.key);
 
     trafficLayer = L.tileLayer(trafficUrl, { maxZoom: 19, opacity: 0.75 }).addTo(map);
-    const attributionEl = document.getElementById("k-traffic-attribution");
-    if (attributionEl) attributionEl.hidden = false;
+    trafficActive = true;
+    updateMapAttribution();
 
     // The detail map already has Leaflet's own attribution control on
     // (unlike the big map above), so its TomTom credit just goes through
@@ -195,10 +292,18 @@ function initSpotlightMap() {
     doubleClickZoom: true,
     touchZoom: true
   }).setView(CENTER, SPOTLIGHT_ZOOM);
-  spotlightTileLayer = L.tileLayer(SPOTLIGHT_TILE_URL, {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap"
-  }).addTo(spotlightMap);
+  const showSpotlightBase = () => {
+    if (spotlightTileLayer) spotlightMap.removeLayer(spotlightTileLayer);
+    spotlightTileLayer = (spotlightIsSatellite
+      ? L.tileLayer(SPOTLIGHT_SATELLITE_URL, { maxZoom: 19, attribution: ESRI_ATTRIBUTION })
+      : cartoUrl
+        ? L.tileLayer(cartoUrl, { maxZoom: 19, attribution: CARTO_ATTRIBUTION })
+        : L.tileLayer(OSM_TILE_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION })
+    ).addTo(spotlightMap);
+    spotlightTileLayer.bringToBack(); // keep the traffic overlay above the base
+  };
+  showSpotlightBase();
+  document.getElementById("k-spotlight-satellite").classList.toggle("k-map-sat-btn--active", spotlightIsSatellite);
 
   // Manual interaction with the detail map pauses the auto-rotation too,
   // same courtesy as clicking a vehicle in the roster.
@@ -219,11 +324,7 @@ function initSpotlightMap() {
   document.getElementById("k-spotlight-satellite").addEventListener("click", (e) => {
     spotlightIsSatellite = !spotlightIsSatellite;
     e.currentTarget.classList.toggle("k-map-sat-btn--active", spotlightIsSatellite);
-
-    if (spotlightTileLayer) spotlightMap.removeLayer(spotlightTileLayer);
-    spotlightTileLayer = spotlightIsSatellite
-      ? L.tileLayer(SPOTLIGHT_SATELLITE_URL, { maxZoom: 19, attribution: "Tiles © Esri" }).addTo(spotlightMap)
-      : L.tileLayer(SPOTLIGHT_TILE_URL, { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(spotlightMap);
+    showSpotlightBase();
   });
 }
 
@@ -640,7 +741,9 @@ async function refresh() {
 startClock();
 startTips();
 initMap();
+updateMapAttribution();
 initSpotlightMap();
+initBaseMapStyle();
 initTrafficLayer();
 refresh();
 setInterval(refresh, REFRESH_INTERVAL_MS);

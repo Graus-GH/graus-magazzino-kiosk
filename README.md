@@ -81,6 +81,8 @@ Per ora, in fase di test, va bene così.
 | Nome | Descrizione | Default |
 |---|---|---|
 | `DRIVER_REVEAL_KEY` | Chiave segreta per vedere i nomi conducente in tutte e tre le dashboard. Impostane una a piacere (es. una stringa casuale), poi apri una pagina aggiungendo `?key=quella-stringa` in fondo all'URL — solo così i nomi compaiono, sulla TV pubblica restano sempre nascosti | (nessuno — funzione disattivata finché non la imposti) |
+| `TOMTOM_API_KEY` | Chiave TomTom (piano gratuito, 200.000 tile/mese) per il layer traffico sulle due mappe della dashboard Flotta | (nessuno — niente layer traffico) |
+| `CARTO_API_KEY` | Chiave gratuita CARTO basemaps (da chiedere su carto.com/basemaps/apikey, senza carta) per usare la mappa chiara "Positron" al posto di OpenStreetMap sulla mappa grande. Limitarla al dominio del sito dalle impostazioni CARTO. Se la chiave non è accettata (revocata, quota finita) la mappa torna da sola a OpenStreetMap | (nessuno — resta OpenStreetMap) |
 
 ## Fotovoltaico (SolarEdge, API V2 con OAuth)
 
